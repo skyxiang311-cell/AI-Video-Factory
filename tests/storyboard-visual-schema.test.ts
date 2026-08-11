@@ -7,12 +7,34 @@ import {
   VisualStoryboardSchema,
 } from "../src/storyboard/visual-schema";
 
-const legacyStoryboard = () =>
+const bookDeepReadingStoryboard = (durationMs: number) => {
+  const storyboard = structuredClone(parseVisualStoryboard(sampleStoryboardJson));
+  storyboard.profile = "book-deep-reading";
+  const scaleTimestamp = (timestampMs: number): number =>
+    timestampMs <= 3_000
+      ? timestampMs
+      : 3_000 + (timestampMs - 3_000) * 11;
+
+  storyboard.format.durationMs = durationMs;
+  storyboard.scenes.forEach((scene) => {
+    scene.startMs = scaleTimestamp(scene.startMs);
+    scene.endMs = scaleTimestamp(scene.endMs);
+  });
+  storyboard.captions.forEach((caption) => {
+    caption.startMs = scaleTimestamp(caption.startMs);
+    caption.endMs = scaleTimestamp(caption.endMs);
+  });
+
+  return storyboard;
+};
+
+const legacyStoryboard = (profile?: "knowledge-short" | "book-deep-reading") =>
   parseStoryboard({
     schemaVersion: "1.0",
     jobId: "legacy-demo",
     format: {width: 1080, height: 1920, fps: 30, durationMs: 10_000},
     template: "knowledge",
+    ...(profile ? {profile} : {}),
     scenes: [
       {
         id: "scene-hook",
@@ -70,6 +92,31 @@ const legacyStoryboard = () =>
   });
 
 describe("Storyboard V1.1 visual contract", () => {
+  it("defaults a profile-less sample to knowledge-short", () => {
+    expect(parseVisualStoryboard(sampleStoryboardJson).profile).toBe("knowledge-short");
+  });
+
+  it("accepts a 300000ms Book Deep Reading storyboard", () => {
+    expect(parseVisualStoryboard(bookDeepReadingStoryboard(300_000)).format.durationMs).toBe(300_000);
+  });
+
+  it("rejects Book Deep Reading storyboards longer than 360000ms", () => {
+    const storyboard = bookDeepReadingStoryboard(300_000);
+    storyboard.format.durationMs = 360_001;
+    storyboard.scenes.at(-1)!.endMs = 360_001;
+    storyboard.captions.at(-1)!.endMs = 360_001;
+
+    expect(VisualStoryboardSchema.safeParse(storyboard).success).toBe(false);
+  });
+
+  it("keeps the Primary Hook within 3000ms", () => {
+    const storyboard = bookDeepReadingStoryboard(300_000);
+    storyboard.scenes[0]!.endMs = 3_001;
+    storyboard.scenes[1]!.startMs = 3_001;
+
+    expect(VisualStoryboardSchema.safeParse(storyboard).success).toBe(false);
+  });
+
   it("migrates the V1 sample into a valid visual storyboard", () => {
     const migrated = migrateStoryboardV1ToV1_1(legacyStoryboard());
     const storyboard = parseVisualStoryboard(migrated);
@@ -85,6 +132,11 @@ describe("Storyboard V1.1 visual contract", () => {
       purpose: "summary",
       visualType: "summary",
     });
+  });
+
+  it("preserves the selected profile when migrating a V1 storyboard", () => {
+    expect(migrateStoryboardV1ToV1_1(legacyStoryboard("book-deep-reading")).profile)
+      .toBe("book-deep-reading");
   });
 
   it("rejects diagram edges that reference unknown nodes", () => {

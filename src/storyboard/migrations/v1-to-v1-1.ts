@@ -91,6 +91,7 @@ export const migrateStoryboardV1ToV1_1 = (
   jobId: storyboard.jobId,
   format: storyboard.format,
   template: storyboard.template,
+  profile: storyboard.profile,
   branding: {enabled: false},
   narration: {
     preset: "natural",

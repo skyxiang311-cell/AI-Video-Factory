@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {getStoryboardProfile, StoryboardProfileNameSchema} from "./profile";
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const CURRENCY_UNIT_PATTERN = /(日元|人民币|美元|欧元|英镑|港元|新台币)/;
@@ -59,9 +60,10 @@ export const StoryboardPropsSchema = z.object({
     width: z.literal(1080),
     height: z.literal(1920),
     fps: z.literal(30),
-    durationMs: z.number().int().positive().max(180_000),
+    durationMs: z.number().int().positive().max(360_000),
   }),
   template: z.literal("knowledge"),
+  profile: StoryboardProfileNameSchema.default("knowledge-short"),
   scenes: z.array(SceneSchema).min(1),
   captions: z.array(CaptionSchema).min(1),
 });
@@ -81,7 +83,16 @@ const validateStoryboardRelations = (
   context: z.RefinementCtx,
 ): void => {
   const {captions, format, scenes} = storyboard;
+  const profile = getStoryboardProfile(storyboard.profile);
   const seenSceneIds = new Set<string>();
+
+  if (format.durationMs > profile.hardMaxDurationMs) {
+    addIssue(
+      context,
+      ["format", "durationMs"],
+      `profile=${profile.name} 视频时长不得超过 ${profile.hardMaxDurationMs}ms`,
+    );
+  }
 
   scenes.forEach((scene, index) => {
     if (seenSceneIds.has(scene.id)) {
@@ -105,7 +116,7 @@ const validateStoryboardRelations = (
       addIssue(context, ["scenes", index, "purpose"], "hook 只能出现在第一幕");
     }
 
-    if (scene.purpose === "hook" && scene.endMs > 3000) {
+    if (scene.purpose === "hook" && scene.endMs > profile.primaryHookMaxMs) {
       addIssue(context, ["scenes", index, "endMs"], "hook 不得超过前三秒");
     }
 

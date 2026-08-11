@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {layoutChineseCaption} from "./caption-layout";
+import {getStoryboardProfile, StoryboardProfileNameSchema} from "./profile";
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const CURRENCY_UNIT_PATTERN = /(日元|人民币|美元|欧元|英镑|港元|新台币)/;
@@ -237,9 +238,10 @@ export const VisualStoryboardPropsSchema = z.object({
     width: z.literal(1080),
     height: z.literal(1920),
     fps: z.literal(30),
-    durationMs: z.number().int().positive().max(180_000),
+    durationMs: z.number().int().positive().max(360_000),
   }),
   template: z.literal("knowledge"),
+  profile: StoryboardProfileNameSchema.default("knowledge-short"),
   branding: BrandingSchema,
   narration: NarrationSchema,
   audio: z.discriminatedUnion("enabled", [
@@ -273,7 +275,17 @@ const validateVisualStoryboard = (
   storyboard: VisualStoryboardProps,
   context: z.RefinementCtx,
 ): void => {
+  const profile = getStoryboardProfile(storyboard.profile);
   const seenIds = new Set<string>();
+
+  if (storyboard.format.durationMs > profile.hardMaxDurationMs) {
+    addIssue(
+      context,
+      ["format", "durationMs"],
+      `profile=${profile.name} 视频时长不得超过 ${profile.hardMaxDurationMs}ms`,
+    );
+  }
+
   storyboard.scenes.forEach((scene, index) => {
     if (seenIds.has(scene.id)) {
       addIssue(context, ["scenes", index, "id"], "场景 ID 必须唯一");
@@ -285,7 +297,7 @@ const validateVisualStoryboard = (
     if (scene.visualType === "hook" && index !== 0) {
       addIssue(context, ["scenes", index, "visualType"], "hook 只能出现在第一幕");
     }
-    if (scene.purpose === "hook" && scene.endMs > 3000) {
+    if (scene.purpose === "hook" && scene.endMs > profile.primaryHookMaxMs) {
       addIssue(context, ["scenes", index, "endMs"], "hook 不得超过前三秒");
     }
     if (
