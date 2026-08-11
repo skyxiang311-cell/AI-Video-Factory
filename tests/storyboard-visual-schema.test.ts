@@ -17,6 +17,7 @@ describe("Storyboard V1.1 visual contract", () => {
     expect(storyboard.scenes[0]).toMatchObject({
       purpose: "hook",
       visualType: "hook",
+      visualData: {tone: "ink"},
     });
     expect(storyboard.scenes.at(-1)).toMatchObject({
       purpose: "summary",

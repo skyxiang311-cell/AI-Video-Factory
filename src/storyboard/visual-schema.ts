@@ -41,6 +41,7 @@ const HookSceneSchema = z.object({
     highlight: z.string().min(1).max(16),
     motif: z.enum(["contrast", "question", "conclusion"]),
     accent: AccentNameSchema,
+    tone: z.enum(["ink", "paper"]),
   }),
 });
 
@@ -57,6 +58,7 @@ const DiagramSceneSchema = z.object({
     title: z.string().min(1).max(26),
     layout: z.enum(["horizontal-flow", "vertical-flow", "cycle", "relation"]),
     accent: AccentNameSchema,
+    tone: z.enum(["ink", "paper"]),
     nodes: z.array(DiagramNodeSchema).min(2).max(5),
     edges: z.array(
       z.object({
@@ -84,6 +86,7 @@ const StatSceneSchema = z.object({
     title: z.string().min(1).max(26),
     mode: z.enum(["single", "ratio", "ranking"]),
     accent: AccentNameSchema,
+    tone: z.enum(["ink", "paper"]),
     metrics: z.array(StatMetricSchema).min(1).max(3),
   }),
 });
@@ -101,6 +104,7 @@ const ComparisonSceneSchema = z.object({
     title: z.string().min(1).max(26),
     mode: z.enum(["wrong-right", "a-b"]),
     accent: AccentNameSchema,
+    tone: z.enum(["ink", "paper"]),
     left: ComparisonSideSchema,
     right: ComparisonSideSchema,
   }),
@@ -111,6 +115,7 @@ const SummarySceneSchema = z.object({
   visualData: z.object({
     title: z.string().min(1).max(26),
     accent: AccentNameSchema,
+    tone: z.enum(["ink", "paper"]),
     items: z.array(
       z.object({
         label: z.string().min(1).max(18),

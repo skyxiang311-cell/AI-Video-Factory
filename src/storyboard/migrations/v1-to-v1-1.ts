@@ -28,6 +28,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
           highlight: scene.emphasis[0] ?? headline,
           motif: "contrast",
           accent: "gold",
+          tone: "ink",
         },
       };
     case "stat-card":
@@ -38,6 +39,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
           title: headline,
           mode: "single",
           accent: "moss",
+          tone: "paper",
           metrics: [{
             value: Number(scene.presentation.metric.value),
             decimals: 0,
@@ -55,6 +57,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
           title: headline,
           layout: "horizontal-flow",
           accent: "indigo",
+          tone: "ink",
           nodes: [
             {id: "idea", label: headline, icon: "brain"},
             {id: "action", label: supporting, icon: "check"},
@@ -69,6 +72,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
         visualData: {
           title: headline,
           accent: "gold",
+          tone: "paper",
           items: scene.onScreenText.slice(0, 3).map((label, index) => ({
             label,
             icon: index === 0 ? "repeat" : index === 1 ? "clock" : "shuffle",
