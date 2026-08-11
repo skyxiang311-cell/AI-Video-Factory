@@ -104,6 +104,7 @@ export const BookSourceSchema = z.object({
   source.structure.appendices.forEach((appendix, index) => ensureRange(appendix, ["structure", "appendices", index]));
 
   let previousEndPage = 0;
+  const chaptersById = new Map<string, {startPage: number; endPage: number}>();
   source.structure.chapters.forEach((chapter, index) => {
     const path = ["structure", "chapters", index] as (string | number)[];
     ensureRange(chapter, path);
@@ -115,9 +116,11 @@ export const BookSourceSchema = z.object({
       });
     }
     previousEndPage = Math.max(previousEndPage, chapter.endPage);
+    chaptersById.set(chapter.chapterId, chapter);
   });
 
   const pageNumbers = new Set<number>();
+  const blockIds = new Set<string>();
   source.pages.forEach((page, pageIndex) => {
     const pagePath = ["pages", pageIndex, "page"] as (string | number)[];
     ensurePageBound(page.page, pagePath);
@@ -129,11 +132,21 @@ export const BookSourceSchema = z.object({
     page.contentBlocks.forEach((block, blockIndex) => {
       const path = ["pages", pageIndex, "contentBlocks", blockIndex] as (string | number)[];
       ensurePageBound(block.page, [...path, "page"]);
+      if (blockIds.has(block.blockId)) {
+        context.addIssue({code: z.ZodIssueCode.custom, path: [...path, "blockId"], message: "Block ids must be unique"});
+      }
+      blockIds.add(block.blockId);
       if (block.page !== page.page) {
         context.addIssue({code: z.ZodIssueCode.custom, path: [...path, "page"], message: "Block page must match its containing page"});
       }
       if (!block.blockId.startsWith(`p${page.page}-`)) {
         context.addIssue({code: z.ZodIssueCode.custom, path: [...path, "blockId"], message: "Block id must use its page prefix"});
+      }
+      const chapter = chaptersById.get(block.chapterId);
+      if (!chapter) {
+        context.addIssue({code: z.ZodIssueCode.custom, path: [...path, "chapterId"], message: "Block must cite an existing chapter"});
+      } else if (block.page < chapter.startPage || block.page > chapter.endPage) {
+        context.addIssue({code: z.ZodIssueCode.custom, path: [...path, "chapterId"], message: "Block page must be within its cited chapter range"});
       }
     });
 
@@ -147,6 +160,16 @@ export const BookSourceSchema = z.object({
       }
     });
   });
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    if (!pageNumbers.has(page)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pages"],
+        message: `Missing extracted page ${page}`,
+      });
+    }
+  }
 
   source.extractionQuality.lowConfidencePages.forEach((entry, index) => {
     ensurePageBound(entry.page, ["extractionQuality", "lowConfidencePages", index, "page"]);

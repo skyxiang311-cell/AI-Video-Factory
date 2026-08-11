@@ -125,4 +125,42 @@ describe("BookSourceSchema", () => {
 
     expectInvalid(source);
   });
+
+  it("rejects duplicate block ids", () => {
+    const source = validBookSource();
+    source.pages[0]!.contentBlocks.push({
+      blockId: "p1-b1",
+      page: 1,
+      chapterId: "chapter-intro",
+      type: "paragraph",
+      originalText: "重复区块",
+      language: "ja",
+      translation: {"zh-CN": "重复中文解释"},
+      bbox: [10, 20, 100, 120],
+      confidence: 0.98,
+    });
+
+    expectInvalid(source);
+  });
+
+  it("rejects a block that cites a nonexistent chapter", () => {
+    const source = validBookSource();
+    source.pages[1]!.contentBlocks[0]!.chapterId = "chapter-missing";
+
+    expectInvalid(source);
+  });
+
+  it("rejects a block outside its cited chapter range", () => {
+    const source = validBookSource();
+    source.pages[1]!.contentBlocks[0]!.chapterId = "chapter-intro";
+
+    expectInvalid(source);
+  });
+
+  it("requires a complete unique page set from one through page count", () => {
+    const source = validBookSource();
+    source.pages.pop();
+
+    expectInvalid(source);
+  });
 });
