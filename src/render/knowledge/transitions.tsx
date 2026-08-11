@@ -1,10 +1,14 @@
-import {linearTiming} from "@remotion/transitions";
+import {linearTiming, springTiming} from "@remotion/transitions";
 import {fade} from "@remotion/transitions/fade";
 import {slide} from "@remotion/transitions/slide";
-import type {StoryboardScene} from "../../storyboard/schema";
 import {millisecondsToFrames} from "../../storyboard/timeline";
 
-export const getTransition = (scene: StoryboardScene, fps: number) => {
+type TransitionScene = {
+  transition: "cut" | "fade" | "slide-left" | "slide-up";
+  transitionDurationMs: number;
+};
+
+export const getTransition = (scene: TransitionScene, fps: number) => {
   if (scene.transition === "cut") {
     return null;
   }
@@ -13,14 +17,13 @@ export const getTransition = (scene: StoryboardScene, fps: number) => {
     scene.transitionDurationMs,
     fps,
   );
-  const timing = linearTiming({durationInFrames});
 
   switch (scene.transition) {
     case "fade":
-      return {presentation: fade(), timing};
+      return {presentation: fade(), timing: linearTiming({durationInFrames})};
     case "slide-left":
-      return {presentation: slide({direction: "from-right"}), timing};
+      return {presentation: slide({direction: "from-right"}), timing: springTiming({durationInFrames, config: {damping: 200}})};
     case "slide-up":
-      return {presentation: slide({direction: "from-bottom"}), timing};
+      return {presentation: slide({direction: "from-bottom"}), timing: springTiming({durationInFrames, config: {damping: 200}})};
   }
 };
