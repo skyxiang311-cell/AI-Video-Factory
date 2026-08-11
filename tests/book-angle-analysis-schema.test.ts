@@ -25,6 +25,19 @@ const validSelectedAngle = () => ({
   angleId: "angle-feedback-loop",
   title: "真正拉开差距的不是努力，而是反馈速度",
   targetDurationSec: 300,
+  centralQuestion: "为什么反馈速度比单纯努力更重要？",
+  thesis: "快速、具体的反馈让练习能够持续纠错。",
+  mustInclude: {
+    claims: ["claim-focused-practice"],
+    evidence: ["evidence-practice-study"],
+    examples: ["每次练习后记录一个可验证改进点。"],
+    counterpoints: ["重复仍然有用，但没有反馈时效率有限。"],
+  },
+  optional: ["补充一个日常练习案例。"],
+  exclude: ["未经核验的泛化结论。"],
+  sourceDisplayRequirements: ["展示书页与外部研究的来源标识。"],
+  desiredViewerTakeaway: "下一次练习时，优先缩短获得反馈的时间。",
+  endingJudgment: "把练习设计成反馈回路，而不是单纯重复。",
   contentBudget: {
     maxClaims: 3,
     maxExamples: 2,
@@ -33,6 +46,23 @@ const validSelectedAngle = () => ({
 });
 
 const validBookAnalysis = () => ({
+  bookId: "book-focused-practice",
+  deepReadingScore: 88,
+  coreThesis: "Focused practice works because feedback turns effort into correction.",
+  keyConcepts: ["focused practice", "feedback"],
+  coreClaimIds: ["claim-focused-practice"],
+  verifiedClaimIds: ["claim-focused-practice"],
+  importantLimitations: ["The result depends on timely feedback."],
+  practicalFrameworks: ["practice-feedback-adjust"],
+  recommendedAngleId: "angle-feedback-loop",
+  artifacts: {
+    source: "book-source.json",
+    chapters: "chapter-analysis.json",
+    synthesis: "book-synthesis.json",
+    verification: "verification.json",
+    angles: "video-angles.json",
+  },
+  qualityGate: {passed: true},
   synthesis: {
     coreThesis: "Focused practice works because feedback turns effort into correction.",
     claimRelations: [],
@@ -67,6 +97,28 @@ describe("book angle and unified analysis schemas", () => {
     const selectedAngle = SelectedAngleSchema.parse(validSelectedAngle());
 
     expect(selectedAngle.targetDurationSec).toBe(300);
+    expect(selectedAngle.mustInclude.claims).toEqual(["claim-focused-practice"]);
+  });
+
+  it("rejects a selected angle whose duration is not exactly three hundred seconds", () => {
+    const selectedAngle = validSelectedAngle();
+    selectedAngle.targetDurationSec = 301;
+
+    expect(SelectedAngleSchema.safeParse(selectedAngle).success).toBe(false);
+  });
+
+  it("indexes the required downstream book-analysis fields", () => {
+    const analysis = BookAnalysisSchema.parse(validBookAnalysis());
+
+    expect(analysis).toMatchObject({
+      bookId: "book-focused-practice",
+      deepReadingScore: 88,
+      coreClaimIds: ["claim-focused-practice"],
+      verifiedClaimIds: ["claim-focused-practice"],
+      recommendedAngleId: "angle-feedback-loop",
+      artifacts: {verification: "verification.json"},
+      qualityGate: {passed: true},
+    });
   });
 
   it("accepts each allowed downstream analysis status", () => {

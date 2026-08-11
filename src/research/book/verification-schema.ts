@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {ConfidenceSchema} from "./common-schema";
 import {ClaimRelationTypeSchema} from "./synthesis-schema";
 
 export const VerificationVerdictSchema = z.enum([
@@ -21,7 +22,11 @@ export const ExternalFindingSchema = z.object({
 
 export const VerificationRecordSchema = z.object({
   claimId: z.string().regex(/^claim-[a-z0-9-]+$/),
+  verificationPriority: z.number().min(0).max(100),
+  reason: z.string().min(1),
   verdict: VerificationVerdictSchema,
+  analysis: z.string().min(1),
+  confidence: ConfidenceSchema,
   externalFindings: z.array(ExternalFindingSchema),
 });
 

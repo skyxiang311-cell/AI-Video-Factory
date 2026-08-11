@@ -28,7 +28,20 @@ export const VideoAnglesSchema = z.object({
 export const SelectedAngleSchema = z.object({
   angleId: z.string().min(1),
   title: z.string().min(1),
-  targetDurationSec: z.number().positive(),
+  targetDurationSec: z.literal(300),
+  centralQuestion: z.string().min(1),
+  thesis: z.string().min(1),
+  mustInclude: z.object({
+    claims: z.array(z.string().min(1)),
+    evidence: z.array(z.string().min(1)),
+    examples: z.array(z.string().min(1)),
+    counterpoints: z.array(z.string().min(1)),
+  }),
+  optional: z.array(z.string().min(1)),
+  exclude: z.array(z.string().min(1)),
+  sourceDisplayRequirements: z.array(z.string().min(1)),
+  desiredViewerTakeaway: z.string().min(1),
+  endingJudgment: z.string().min(1),
   contentBudget: z.object({
     maxClaims: z.number().int().nonnegative(),
     maxExamples: z.number().int().nonnegative(),

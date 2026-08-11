@@ -15,7 +15,11 @@ const validSynthesis = () => ({
 
 const validVerificationRecord = () => ({
   claimId: "claim-focused-practice",
+  verificationPriority: 90,
+  reason: "The central claim will be used in the selected video angle.",
   verdict: "partially_supported",
+  analysis: "The external result supports the claim within the studied population.",
+  confidence: 0.9,
   externalFindings: [
     {
       sourceId: "ext-practice-study",
@@ -51,7 +55,11 @@ describe("book synthesis and verification schemas", () => {
 
     expect(record).toMatchObject({
       claimId: "claim-focused-practice",
+      verificationPriority: 90,
       verdict: "partially_supported",
+      reason: "The central claim will be used in the selected video angle.",
+      analysis: "The external result supports the claim within the studied population.",
+      confidence: 0.9,
       externalFindings: [
         {
           sourceId: "ext-practice-study",
@@ -71,6 +79,13 @@ describe("book synthesis and verification schemas", () => {
   it("rejects a verdict outside the defined verification set", () => {
     const record = validVerificationRecord();
     record.verdict = "true";
+
+    expect(VerificationRecordSchema.safeParse(record).success).toBe(false);
+  });
+
+  it("requires a reasoned, prioritized verdict with bounded confidence", () => {
+    const record = validVerificationRecord();
+    record.confidence = 1.01;
 
     expect(VerificationRecordSchema.safeParse(record).success).toBe(false);
   });
