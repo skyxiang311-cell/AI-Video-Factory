@@ -1,0 +1,41 @@
+# 环境变量与 API Key / 凭证
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+credentials.json
+secrets.json
+
+# 任务生成文件（保留目录本身）
+output/**
+!output/.gitkeep
+
+# Node.js 依赖与构建产物
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# 临时缓存文件
+.cache/
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 常见工具缓存
+.turbo/
+.parcel-cache/
+.eslintcache
+.pytest_cache/
+__pycache__/
+*.py[cod]
