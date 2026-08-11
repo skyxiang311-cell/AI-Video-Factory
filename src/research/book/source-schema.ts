@@ -108,6 +108,13 @@ export const BookSourceSchema = z.object({
   source.structure.chapters.forEach((chapter, index) => {
     const path = ["structure", "chapters", index] as (string | number)[];
     ensureRange(chapter, path);
+    if (chaptersById.has(chapter.chapterId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...path, "chapterId"],
+        message: "Chapter ids must be unique",
+      });
+    }
     if (chapter.startPage <= previousEndPage) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

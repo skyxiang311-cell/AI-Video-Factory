@@ -86,6 +86,15 @@ const expectInvalid = (input: unknown): void => {
   expect(BookSourceSchema.safeParse(input).success).toBe(false);
 };
 
+const expectInvalidPath = (input: unknown, expectedPath: string): void => {
+  const result = BookSourceSchema.safeParse(input);
+
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.issues.map((issue) => issue.path.join("."))).toContain(expectedPath);
+  }
+};
+
 describe("BookSourceSchema", () => {
   it("parses multilingual immutable original text with an optional translation", () => {
     const result = BookSourceSchema.parse(validBookSource());
@@ -117,6 +126,13 @@ describe("BookSourceSchema", () => {
     source.structure.chapters[1]!.startPage = 1;
 
     expectInvalid(source);
+  });
+
+  it("rejects duplicate chapter ids", () => {
+    const source = validBookSource();
+    source.structure.chapters[1]!.chapterId = "chapter-intro";
+
+    expectInvalidPath(source, "structure.chapters.1.chapterId");
   });
 
   it("rejects pages and structure ranges outside the document page count", () => {
