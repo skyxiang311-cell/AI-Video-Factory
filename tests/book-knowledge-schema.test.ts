@@ -1,9 +1,14 @@
+import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {
   ChapterAnalysisSchema,
   ClaimSchema,
   EvidenceSchema,
 } from "../src/research/book/knowledge-schema";
+
+const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
+  await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
+);
 
 const validClaim = () => ({
   claimId: "claim-focus-beats-volume",
@@ -58,6 +63,15 @@ const validChapterAnalysis = () => ({
 });
 
 describe("book knowledge schemas", () => {
+  it("parses the synthetic chapter analysis with two scoped traceable claims and evidence items", async () => {
+    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("chapter-analysis.json"));
+
+    expect(chapter.claims).toHaveLength(2);
+    expect(chapter.evidence).toHaveLength(2);
+    expect(chapter.claims.every((claim) => claim.scope.appliesTo.length > 0)).toBe(true);
+    expect(chapter.claims.every((claim) => claim.sourceRefs.length > 0)).toBe(true);
+  });
+
   it("parses a scoped claim with traceable source references", () => {
     const claim = ClaimSchema.parse(validClaim());
 

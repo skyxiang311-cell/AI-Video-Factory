@@ -1,3 +1,4 @@
+import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 
@@ -95,7 +96,23 @@ const expectInvalidPath = (input: unknown, expectedPath: string): void => {
   }
 };
 
+const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
+  await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
+);
+
 describe("BookSourceSchema", () => {
+  it("parses the synthetic two-page source fixture with high-confidence source blocks", async () => {
+    const source = BookSourceSchema.parse(await loadBookFixture("book-source.json"));
+
+    expect(source.metadata.pageCount).toBe(2);
+    expect(source.extractionQuality.overallConfidence).toBeGreaterThan(0.95);
+    expect(source.pages).toHaveLength(2);
+    expect(source.pages.flatMap((page) => page.contentBlocks).filter((block) => block.type === "paragraph"))
+      .toHaveLength(2);
+    expect(source.pages.flatMap((page) => page.visualElements).some((element) => element.type === "chart"))
+      .toBe(true);
+  });
+
   it("parses multilingual immutable original text with an optional translation", () => {
     const result = BookSourceSchema.parse(validBookSource());
 

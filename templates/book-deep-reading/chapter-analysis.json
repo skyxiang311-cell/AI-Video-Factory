@@ -1,0 +1,128 @@
+{
+  "chapterId": "chapter-feedback-window",
+  "title": "反馈抵达的时间窗",
+  "importance": {
+    "score": 91,
+    "level": "core",
+    "reason": "本章给出复盘频率与反馈时效如何共同影响学习线索的核心论证。"
+  },
+  "chapterRole": "core_argument",
+  "summary": {
+    "oneSentence": "作者认为，复盘必须嵌入下一次行动之前的反馈窗口，才会持续产生可纠正的学习线索。",
+    "detailed": "这份完全合成的章节分析将作者的主张限定在可重复的技能练习：先记录一个错误假设，再在下一次行动前接收具体反馈。它没有把虚构的小组统计当作真实研究，而只把它视为书内的演示材料。"
+  },
+  "claims": [
+    {
+      "claimId": "claim-micro-retrospective",
+      "type": "process",
+      "statement": "作者主张：在能够记录具体偏差的重复性练习中，把复盘缩短为每次行动后的微型循环，比只做月度回顾更容易积累可纠正的学习线索。",
+      "importance": {
+        "score": 88,
+        "level": "high",
+        "reason": "它说明作者为什么关注复盘频率，而不是单纯增加复盘篇幅。"
+      },
+      "authorPosition": "这是合成书中作者的观点，不是对真实学习科学的事实断言。",
+      "scope": {
+        "appliesTo": ["可重复的技能练习", "能够记录一个具体偏差的行动"],
+        "doesNotNecessarilyApplyTo": ["一次性项目决策", "没有可观察结果的开放式探索"]
+      },
+      "bookEvidenceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        }
+      ],
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        }
+      ],
+      "confidence": 0.97,
+      "verificationStatus": "needs_external_check"
+    },
+    {
+      "claimId": "claim-feedback-window",
+      "type": "causal",
+      "statement": "作者主张：反馈若在下一次行动前抵达，会让练习者更可能把已发现的偏差转化为下一轮可检验的调整。",
+      "importance": {
+        "score": 90,
+        "level": "core",
+        "reason": "它把复盘频率与反馈时效连接成选题所需的解释链。"
+      },
+      "authorPosition": "这是合成书中作者基于虚构示例提出的机制解释，不能视作真实因果研究结论。",
+      "scope": {
+        "appliesTo": ["反馈内容具体", "下一次行动仍可调整的练习任务"],
+        "doesNotNecessarilyApplyTo": ["反馈无法被理解或执行的场景", "需要长期延迟结果的复杂系统"]
+      },
+      "bookEvidenceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-feedback-window",
+          "page": 2,
+          "blockId": "p2-bfeedback-window"
+        }
+      ],
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-feedback-window",
+          "page": 2,
+          "blockId": "p2-bfeedback-window"
+        }
+      ],
+      "confidence": 0.97,
+      "verificationStatus": "unverified"
+    }
+  ],
+  "arguments": [
+    "微型复盘先把偏差变成可检验的下一步。",
+    "若反馈在下一次行动前抵达，偏差才有机会被立即修正。"
+  ],
+  "evidence": [
+    {
+      "evidenceId": "evidence-micro-retrospective-observation",
+      "type": "author_observation",
+      "summary": "书内用“把偏差改写成下一次可验证改动”的描述说明微型复盘的操作方式。",
+      "supportsClaimIds": ["claim-micro-retrospective"],
+      "strength": 0.62,
+      "sourceRef": {
+        "type": "book",
+        "chapterId": "chapter-micro-retrospective",
+        "page": 1,
+        "blockId": "p1-bmicro-retrospective"
+      },
+      "originalExcerpt": "复盘不是把经历再讲一遍，而是把一次行动中的偏差改写成下一次可以验证的改动。",
+      "interpretation": "这是一条书内作者观察，只解释作者的工作定义，不能独立证明学习效果。",
+      "confidence": 0.97
+    },
+    {
+      "evidenceId": "evidence-synthetic-feedback-statistic",
+      "type": "statistic",
+      "summary": "书内列出一个虚构小组的 37% 差异，用来演示反馈时效的叙事表达。",
+      "supportsClaimIds": ["claim-feedback-window"],
+      "strength": 0.2,
+      "sourceRef": {
+        "type": "book",
+        "chapterId": "chapter-feedback-window",
+        "page": 2,
+        "blockId": "p2-bfeedback-window"
+      },
+      "originalExcerpt": "【合成统计，非真实研究】……四周后自评的改进线索数量比仅每月复盘者高 37%。",
+      "interpretation": "该数字明确是合成测试数据，不能当作外部研究、真实统计或普遍因果证据。",
+      "confidence": 0.97
+    }
+  ],
+  "examples": ["每次演讲排练后只记下一处听众可能误解的句子，并在下一次排练前请同伴指出是否仍然发生。"],
+  "concepts": ["微型复盘", "反馈时间窗", "可检验调整"],
+  "questions": ["如果反馈质量低于记录偏差的质量，缩短频率是否仍有价值？"],
+  "limitations": ["书内 37% 数字为合成资料，不能用于真实外部验证或因果推论。", "机制只适用于可以迅速再次行动的练习任务。"],
+  "relationsToOtherChapters": ["chapter-micro-retrospective 为本章提供复盘动作的定义。"],
+  "quality": {
+    "confidence": 0.97
+  }
+}

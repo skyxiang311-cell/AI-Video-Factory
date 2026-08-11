@@ -1,0 +1,20 @@
+[
+  {
+    "claimId": "claim-feedback-window",
+    "verificationPriority": 92,
+    "reason": "该作者主张将用于推荐角度，且书内支撑材料含有明确标为虚构的统计数字，必须与任何真实外部验证严格分开。",
+    "verdict": "not_verifiable",
+    "analysis": "Synthetic fixture only: 作者的机制说法保留为 Author Claim；本记录不声称检索、确认或复述任何真实外部研究。虚构的 37% 仅是书内演示，不能验证该主张。",
+    "confidence": 0.99,
+    "externalFindings": [
+      {
+        "sourceId": "ext-synthetic-feedback-observation",
+        "sourceType": "synthetic-test-data",
+        "publicationDate": "2026-08-11",
+        "finding": "Synthetic external-verification placeholder: 没有真实外部来源、研究结果或统计可供核验；该记录只用于测试作者主张与外部核验的分层。",
+        "relationToClaim": "qualifies",
+        "credibilityLevel": "D"
+      }
+    ]
+  }
+]

@@ -1,6 +1,11 @@
+import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {BookSynthesisSchema} from "../src/research/book/synthesis-schema";
 import {VerificationRecordSchema} from "../src/research/book/verification-schema";
+
+const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
+  await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
+);
 
 const validSynthesis = () => ({
   coreThesis: "Focused practice works because feedback turns effort into correction.",
@@ -33,6 +38,16 @@ const validVerificationRecord = () => ({
 });
 
 describe("book synthesis and verification schemas", () => {
+  it("parses synthetic synthesis and verification without presenting synthetic findings as research", async () => {
+    const synthesis = BookSynthesisSchema.parse(await loadBookFixture("book-synthesis.json"));
+    const verification = VerificationRecordSchema.array().parse(await loadBookFixture("verification.json"));
+
+    expect(synthesis.claimRelations).toHaveLength(1);
+    expect(verification).toHaveLength(1);
+    expect(verification[0]?.analysis).toMatch(/synthetic/i);
+    expect(verification[0]?.externalFindings[0]?.finding).toMatch(/synthetic/i);
+  });
+
   it("parses the core thesis and each supported claim relation", () => {
     const synthesis = BookSynthesisSchema.parse(validSynthesis());
 

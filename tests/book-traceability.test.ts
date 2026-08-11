@@ -1,3 +1,4 @@
+import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {
   validateAngleRefs,
@@ -6,6 +7,13 @@ import {
   validateSelectedAngleRefs,
 } from "../src/research/book/traceability";
 import {VideoAnglesSchema} from "../src/research/book/angle-schema";
+import {BookSourceSchema} from "../src/research/book/source-schema";
+import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
+import {SelectedAngleSchema} from "../src/research/book/angle-schema";
+
+const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
+  await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
+);
 
 const bookSource = {
   pages: [
@@ -45,6 +53,7 @@ const videoAngle = (claimIds: string[]) => ({
   title: "Focus creates better feedback loops.",
   premise: "Use focused practice to improve feedback quality.",
   eligible: true,
+  recommended: false,
   claimIds,
   audienceRelevance: 90,
   practicalValue: 90,
@@ -58,6 +67,20 @@ const videoAngle = (claimIds: string[]) => ({
 });
 
 describe("book traceability validation", () => {
+  it("cross-validates every synthetic fixture reference from source blocks through the selected angle", async () => {
+    const source = BookSourceSchema.parse(await loadBookFixture("book-source.json"));
+    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("chapter-analysis.json"));
+    const angles = VideoAnglesSchema.parse(await loadBookFixture("video-angles.json"));
+    const selected = SelectedAngleSchema.parse(await loadBookFixture("selected-angle.json"));
+    const claimIds = new Set(chapter.claims.map((claim) => claim.claimId));
+    const evidenceIds = new Set(chapter.evidence.map((evidence) => evidence.evidenceId));
+
+    expect(validateBookSourceRefs(source, [chapter])).toEqual([]);
+    expect(validateEvidenceRefs([chapter])).toEqual([]);
+    expect(validateAngleRefs(angles, claimIds)).toEqual([]);
+    expect(validateSelectedAngleRefs(selected, claimIds, evidenceIds)).toEqual([]);
+  });
+
   it("blocks a claim whose referenced book block does not exist", () => {
     const analysis = chapterAnalysis();
     analysis.claims[0]!.sourceRefs = [

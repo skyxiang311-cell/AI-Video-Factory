@@ -1,12 +1,18 @@
+import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {BookAnalysisSchema} from "../src/research/book/book-analysis-schema";
 import {SelectedAngleSchema, VideoAnglesSchema} from "../src/research/book/angle-schema";
+
+const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
+  await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
+);
 
 const validVideoAngle = () => ({
   angleId: "angle-feedback-loop",
   title: "真正拉开差距的不是努力，而是反馈速度",
   premise: "把书中的反馈观点转化为一个可执行的练习框架。",
   eligible: true,
+  recommended: true,
   claimIds: ["claim-focused-practice"],
   audienceRelevance: 92,
   practicalValue: 90,
@@ -81,6 +87,26 @@ const validBookAnalysis = () => ({
 });
 
 describe("book angle and unified analysis schemas", () => {
+  it("requires and preserves an explicit recommendation decision for every candidate", () => {
+    const recommended = VideoAnglesSchema.parse({candidates: [validVideoAngle()]});
+    const missingDecision = validVideoAngle();
+    delete (missingDecision as Partial<typeof missingDecision>).recommended;
+
+    expect(recommended.candidates[0]?.recommended).toBe(true);
+    expect(VideoAnglesSchema.safeParse({candidates: [missingDecision]}).success).toBe(false);
+  });
+
+  it("parses three synthetic angle candidates, one recommendation, and a five-minute selected angle", async () => {
+    const angles = VideoAnglesSchema.parse(await loadBookFixture("video-angles.json"));
+    const selected = SelectedAngleSchema.parse(await loadBookFixture("selected-angle.json"));
+    const analysis = BookAnalysisSchema.parse(await loadBookFixture("book-analysis.json"));
+
+    expect(angles.candidates).toHaveLength(3);
+    expect(angles.candidates.filter((angle) => angle.recommended)).toHaveLength(1);
+    expect(selected.targetDurationSec).toBe(300);
+    expect(analysis.deepReadingScore).toBeGreaterThanOrEqual(85);
+  });
+
   it("accepts scored video-angle candidates in the inclusive zero to one-hundred range", () => {
     const angles = VideoAnglesSchema.parse({candidates: [validVideoAngle()]});
 

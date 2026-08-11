@@ -1,0 +1,10 @@
+{
+  "coreThesis": "在可重复且能获得具体反馈的练习中，复盘的价值来自把偏差快速转成下一轮可检验的调整，而非单纯延长回顾时间。",
+  "claimRelations": [
+    {
+      "fromClaimId": "claim-micro-retrospective",
+      "toClaimId": "claim-feedback-window",
+      "relation": "explains"
+    }
+  ]
+}

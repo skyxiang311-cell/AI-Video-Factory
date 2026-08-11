@@ -1,0 +1,153 @@
+{
+  "bookId": "synthetic-retrospective-feedback",
+  "deepReadingScore": 89,
+  "coreThesis": "在可重复且能获得具体反馈的练习中，复盘的价值来自把偏差快速转成下一轮可检验的调整，而非单纯延长回顾时间。",
+  "keyConcepts": ["微型复盘", "反馈时间窗", "可检验调整"],
+  "coreClaimIds": ["claim-micro-retrospective", "claim-feedback-window"],
+  "verifiedClaimIds": [],
+  "importantLimitations": ["37% 是明确标注的合成统计，不能作为真实外部证据。", "该机制只适用于可重复并可在下一次行动前获得具体反馈的任务。"],
+  "practicalFrameworks": ["记录一个偏差 → 在下一次行动前获取具体反馈 → 验证一个调整"],
+  "recommendedAngleId": "angle-feedback-before-next-action",
+  "artifacts": {
+    "source": "book-source.json",
+    "chapters": "chapter-analysis.json",
+    "synthesis": "book-synthesis.json",
+    "verification": "verification.json",
+    "angles": "video-angles.json"
+  },
+  "qualityGate": {
+    "passed": true,
+    "status": "approved_for_video",
+    "blockingIssues": [],
+    "syntheticFixture": true
+  },
+  "synthesis": {
+    "coreThesis": "在可重复且能获得具体反馈的练习中，复盘的价值来自把偏差快速转成下一轮可检验的调整，而非单纯延长回顾时间。",
+    "claimRelations": [
+      {
+        "fromClaimId": "claim-micro-retrospective",
+        "toClaimId": "claim-feedback-window",
+        "relation": "explains"
+      }
+    ]
+  },
+  "verificationRecords": [
+    {
+      "claimId": "claim-feedback-window",
+      "verificationPriority": 92,
+      "reason": "该作者主张将用于推荐角度，且书内支撑材料含有明确标为虚构的统计数字，必须与任何真实外部验证严格分开。",
+      "verdict": "not_verifiable",
+      "analysis": "Synthetic fixture only: 作者的机制说法保留为 Author Claim；本记录不声称检索、确认或复述任何真实外部研究。虚构的 37% 仅是书内演示，不能验证该主张。",
+      "confidence": 0.99,
+      "externalFindings": [
+        {
+          "sourceId": "ext-synthetic-feedback-observation",
+          "sourceType": "synthetic-test-data",
+          "publicationDate": "2026-08-11",
+          "finding": "Synthetic external-verification placeholder: 没有真实外部来源、研究结果或统计可供核验；该记录只用于测试作者主张与外部核验的分层。",
+          "relationToClaim": "qualifies",
+          "credibilityLevel": "D"
+        }
+      ]
+    }
+  ],
+  "videoAngles": {
+    "candidates": [
+      {
+        "angleId": "angle-feedback-before-next-action",
+        "title": "为什么复盘越勤，反而越容易学会？关键不在总结，而在反馈赶不赶得上下一次行动",
+        "premise": "用“下一次行动前能否收到具体反馈”解释微型复盘的价值，并明确虚构统计不能当作研究结论。",
+        "eligible": true,
+        "recommended": true,
+        "claimIds": ["claim-micro-retrospective", "claim-feedback-window"],
+        "audienceRelevance": 91,
+        "practicalValue": 93,
+        "counterIntuitiveScore": 82,
+        "evidenceStrength": 86,
+        "narrativePotential": 89,
+        "saveValue": 92,
+        "originalInsight": 84,
+        "titleIntegrityScore": 94,
+        "faithfulnessPenalty": 0,
+        "overclaimPenalty": 0,
+        "evidencePenalty": 0,
+        "overallScore": 90
+      },
+      {
+        "angleId": "angle-monthly-review-limit",
+        "title": "月度复盘不够用吗？先看你的下一次行动还来不来得及调整",
+        "premise": "从反馈窗口的限制条件切入，帮助观众判断月度回顾适合哪些任务。",
+        "eligible": true,
+        "recommended": false,
+        "claimIds": ["claim-feedback-window"],
+        "audienceRelevance": 85,
+        "practicalValue": 86,
+        "counterIntuitiveScore": 73,
+        "evidenceStrength": 82,
+        "narrativePotential": 80,
+        "saveValue": 85,
+        "originalInsight": 79,
+        "titleIntegrityScore": 92,
+        "faithfulnessPenalty": 1,
+        "overclaimPenalty": 0,
+        "evidencePenalty": 2,
+        "overallScore": 84
+      },
+      {
+        "angleId": "angle-error-hypothesis-note",
+        "title": "每次练习只记一个错误假设，复盘才不会写成流水账",
+        "premise": "把书内的微型复盘定义变成一个记录错误假设的轻量练习。",
+        "eligible": true,
+        "recommended": false,
+        "claimIds": ["claim-micro-retrospective"],
+        "audienceRelevance": 83,
+        "practicalValue": 90,
+        "counterIntuitiveScore": 71,
+        "evidenceStrength": 80,
+        "narrativePotential": 78,
+        "saveValue": 88,
+        "originalInsight": 81,
+        "titleIntegrityScore": 93,
+        "faithfulnessPenalty": 0,
+        "overclaimPenalty": 0,
+        "evidencePenalty": 2,
+        "overallScore": 83
+      }
+    ]
+  },
+  "selectedAngle": {
+    "angleId": "angle-feedback-before-next-action",
+    "title": "为什么复盘越勤，反而越容易学会？关键不在总结，而在反馈赶不赶得上下一次行动",
+    "targetDurationSec": 300,
+    "centralQuestion": "为什么复盘频率本身不够，反馈是否赶在下一次行动前才是关键？",
+    "thesis": "对可重复的练习而言，微型复盘只有接上具体且及时的反馈，才能持续把偏差变成下一轮可检验的调整。",
+    "mustInclude": {
+      "claims": ["claim-micro-retrospective", "claim-feedback-window"],
+      "evidence": ["evidence-micro-retrospective-observation", "evidence-synthetic-feedback-statistic"],
+      "examples": ["每次演讲排练后只记下一处可能被误解的句子，并在下一次排练前请同伴检查它是否仍然发生。"],
+      "counterpoints": ["月度复盘仍可用于整理长期模式，但它无法替代下一次行动前所需的具体反馈。", "书内 37% 数字是合成测试资料，不能作为真实研究或普遍效果承诺。"]
+    },
+    "optional": ["展示一个“错误假设—反馈—调整”的三步卡片。"],
+    "exclude": ["把合成的 37% 说成真实实验结果。", "将该机制泛化到没有即时行动机会的所有学习任务。"],
+    "sourceDisplayRequirements": ["书内观点标注为“合成书籍示例：第 1–2 页”。", "出现 37% 时同步标注“合成统计，非真实研究”。", "外部核验位置标注“无真实外部来源；仅为合成 fixture”。"],
+    "desiredViewerTakeaway": "下一次练习后，不必写长篇心得；先记录一个可验证的偏差，并在下一次行动前取得具体反馈。",
+    "endingJudgment": "复盘不是一段独立的回忆时间，而是下一次行动开始前的一次校准。",
+    "contentBudget": {
+      "maxClaims": 2,
+      "maxExamples": 1,
+      "maxConcepts": 3
+    }
+  },
+  "status": "approved_for_video",
+  "quality": {
+    "structureCoverage": 10,
+    "coreThesis": 14,
+    "argumentChain": 14,
+    "evidenceTraceability": 15,
+    "crossChapterSynthesis": 13,
+    "externalVerification": 7,
+    "limitations": 8,
+    "practicalApplication": 9,
+    "audienceReadiness": 10
+  }
+}

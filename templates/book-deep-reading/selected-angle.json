@@ -1,0 +1,23 @@
+{
+  "angleId": "angle-feedback-before-next-action",
+  "title": "为什么复盘越勤，反而越容易学会？关键不在总结，而在反馈赶不赶得上下一次行动",
+  "targetDurationSec": 300,
+  "centralQuestion": "为什么复盘频率本身不够，反馈是否赶在下一次行动前才是关键？",
+  "thesis": "对可重复的练习而言，微型复盘只有接上具体且及时的反馈，才能持续把偏差变成下一轮可检验的调整。",
+  "mustInclude": {
+    "claims": ["claim-micro-retrospective", "claim-feedback-window"],
+    "evidence": ["evidence-micro-retrospective-observation", "evidence-synthetic-feedback-statistic"],
+    "examples": ["每次演讲排练后只记下一处可能被误解的句子，并在下一次排练前请同伴检查它是否仍然发生。"],
+    "counterpoints": ["月度复盘仍可用于整理长期模式，但它无法替代下一次行动前所需的具体反馈。", "书内 37% 数字是合成测试资料，不能作为真实研究或普遍效果承诺。"]
+  },
+  "optional": ["展示一个“错误假设—反馈—调整”的三步卡片。"],
+  "exclude": ["把合成的 37% 说成真实实验结果。", "将该机制泛化到没有即时行动机会的所有学习任务。"],
+  "sourceDisplayRequirements": ["书内观点标注为“合成书籍示例：第 1–2 页”。", "出现 37% 时同步标注“合成统计，非真实研究”。", "外部核验位置标注“无真实外部来源；仅为合成 fixture”。"],
+  "desiredViewerTakeaway": "下一次练习后，不必写长篇心得；先记录一个可验证的偏差，并在下一次行动前取得具体反馈。",
+  "endingJudgment": "复盘不是一段独立的回忆时间，而是下一次行动开始前的一次校准。",
+  "contentBudget": {
+    "maxClaims": 2,
+    "maxExamples": 1,
+    "maxConcepts": 3
+  }
+}

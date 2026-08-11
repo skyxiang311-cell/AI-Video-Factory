@@ -1,0 +1,89 @@
+{
+  "artifact": {
+    "inputHash": "6f9c0aa60da0cd19b48c0a4e562524d1dff7b8c05fe0d602fed6fc8be866bab9",
+    "promptVersion": "book-source-v1",
+    "modelProfile": "balanced",
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-08-11T00:00:00.000Z"
+  },
+  "metadata": {
+    "title": "复盘的回声：学习反馈的节奏（合成示例）",
+    "authors": ["林澈（虚构作者）"],
+    "language": "zh-CN",
+    "publisher": "合成学习实验室（虚构）",
+    "publicationYear": 2026,
+    "pageCount": 2
+  },
+  "document": {
+    "pdfKind": "digital",
+    "sourcePath": "synthetic/retrospective-feedback-example.pdf",
+    "sha256": "258e7447e4f53d60af5e133cec1619e3ca8f900a0b153d9e114ee8d71051904b",
+    "detectedLanguages": ["zh-CN"]
+  },
+  "structure": {
+    "frontMatter": null,
+    "chapters": [
+      {
+        "chapterId": "chapter-micro-retrospective",
+        "title": "把复盘缩短到下一次行动之前",
+        "startPage": 1,
+        "endPage": 1
+      },
+      {
+        "chapterId": "chapter-feedback-window",
+        "title": "反馈抵达的时间窗",
+        "startPage": 2,
+        "endPage": 2
+      }
+    ],
+    "conclusion": null,
+    "appendices": []
+  },
+  "pages": [
+    {
+      "page": 1,
+      "contentBlocks": [
+        {
+          "blockId": "p1-bmicro-retrospective",
+          "page": 1,
+          "chapterId": "chapter-micro-retrospective",
+          "type": "paragraph",
+          "originalText": "【合成示例，非真实出版物】作者提出，复盘不是把经历再讲一遍，而是把一次行动中的偏差改写成下一次可以验证的改动；因此，能在下一次行动前完成的微型复盘，比事后堆积的月度回顾更容易留下学习线索。",
+          "language": "zh-CN",
+          "bbox": [48, 132, 1032, 468],
+          "confidence": 0.98
+        }
+      ],
+      "visualElements": []
+    },
+    {
+      "page": 2,
+      "contentBlocks": [
+        {
+          "blockId": "p2-bfeedback-window",
+          "page": 2,
+          "chapterId": "chapter-feedback-window",
+          "type": "paragraph",
+          "originalText": "【合成统计，非真实研究】在虚构的“晨光练习小组”测试中，每次练习后写下一个错误假设并在二十四小时内获得反馈的参与者，四周后自评的改进线索数量比仅每月复盘者高 37%；这个数字只用于测试资料，不是外部研究，也不能推广到任何真实人群。",
+          "language": "zh-CN",
+          "bbox": [48, 126, 1032, 428],
+          "confidence": 0.98
+        }
+      ],
+      "visualElements": [
+        {
+          "elementId": "p2-vfeedback-window",
+          "type": "chart",
+          "bbox": [112, 510, 968, 1116],
+          "description": "【合成图表，非真实数据】比较“每次练习后获得二十四小时内反馈”和“仅每月复盘”两组的虚构改进线索数量，标注差异为 37%。",
+          "confidence": 0.97
+        }
+      ]
+    }
+  ],
+  "extractionQuality": {
+    "overallConfidence": 0.98,
+    "lowConfidencePages": [],
+    "warnings": ["本文件为完全原创的合成测试资料，不对应真实书籍、实验或统计。"]
+  }
+}
