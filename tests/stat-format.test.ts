@@ -1,5 +1,8 @@
 import {describe, expect, it} from "vitest";
-import {formatMetricValue} from "../src/render/knowledge/scenes/stat-format";
+import {
+  fitMetricFontSize,
+  formatMetricValue,
+} from "../src/render/knowledge/scenes/stat-format";
 
 describe("formatMetricValue", () => {
   it("animates numeric values before applying display affixes", () => {
@@ -9,5 +12,10 @@ describe("formatMetricValue", () => {
 
   it("never renders a value beyond the target", () => {
     expect(formatMetricValue(3, 1.5, 0, "", "步")).toBe("3步");
+  });
+
+  it("reduces long metric labels to fit one safe line", () => {
+    expect(fitMetricFontSize("3步", 720, 220)).toBe(220);
+    expect(fitMetricFontSize("3个动作", 720, 220)).toBe(180);
   });
 });

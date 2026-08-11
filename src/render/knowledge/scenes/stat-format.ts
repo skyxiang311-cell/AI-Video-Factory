@@ -10,3 +10,10 @@ export const formatMetricValue = (
   const value = decimals === 0 ? Math.round(current).toString() : current.toFixed(decimals);
   return `${prefix}${value}${suffix}`;
 };
+
+export const fitMetricFontSize = (
+  text: string,
+  maxWidth: number,
+  maximumFontSize: number,
+): number =>
+  Math.min(maximumFontSize, Math.floor(maxWidth / Math.max(1, Array.from(text).length)));

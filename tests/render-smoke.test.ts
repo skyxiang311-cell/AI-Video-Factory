@@ -20,10 +20,6 @@ describe("KnowledgeDemo render", () => {
       join(tmpdir(), "ai-video-factory-render-"),
     );
     const outputLocation = join(temporaryDirectory, "smoke.mp4");
-    const knowledgeSceneStill = join(
-      temporaryDirectory,
-      "knowledge-scene.png",
-    );
     const serveUrl = await bundle({
       entryPoint: resolve("apps/studio/src/index.ts"),
     });
@@ -37,7 +33,7 @@ describe("KnowledgeDemo render", () => {
       width: 1080,
       height: 1920,
       fps: 30,
-      durationInFrames: 720,
+      durationInFrames: 900,
     });
 
     await renderMedia({
@@ -53,14 +49,17 @@ describe("KnowledgeDemo render", () => {
 
     expect((await stat(outputLocation)).size).toBeGreaterThan(1024);
 
-    await renderStill({
-      composition,
-      serveUrl,
-      inputProps: sampleStoryboard,
-      output: knowledgeSceneStill,
-      frame: 195,
-      scale: 0.25,
-    });
-    expect((await stat(knowledgeSceneStill)).size).toBeGreaterThan(1024);
+    for (const frame of [45, 150, 300, 450, 615, 810]) {
+      const still = join(temporaryDirectory, `scene-${frame}.png`);
+      await renderStill({
+        composition,
+        serveUrl,
+        inputProps: sampleStoryboard,
+        output: still,
+        frame,
+        scale: 0.25,
+      });
+      expect((await stat(still)).size).toBeGreaterThan(1024);
+    }
   });
 });

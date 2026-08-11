@@ -2,7 +2,7 @@ import {Easing, interpolate, useCurrentFrame} from "remotion";
 import {Icon} from "../components/Icon";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
-import {formatMetricValue} from "./stat-format";
+import {fitMetricFontSize, formatMetricValue} from "./stat-format";
 import type {VisualSceneProps} from "./types";
 
 export const StatScene = ({
@@ -33,6 +33,7 @@ export const StatScene = ({
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
+          const displayValue = formatMetricValue(metric.value, progress, metric.decimals, metric.prefix, metric.suffix);
           return (
             <div
               key={`${metric.label}-${index}`}
@@ -53,15 +54,16 @@ export const StatScene = ({
               <div
                 style={{
                   color: accentColor,
-                  fontSize: mode === "single" ? 220 : 112,
+                  fontSize: mode === "single" ? fitMetricFontSize(displayValue, 720, 220) : 112,
                   fontVariantNumeric: "tabular-nums",
                   fontWeight: 920,
                   letterSpacing: -8,
                   lineHeight: 1,
                   marginTop: metric.icon ? 42 : 0,
+                  whiteSpace: "nowrap",
                 }}
               >
-                {formatMetricValue(metric.value, progress, metric.decimals, metric.prefix, metric.suffix)}
+                {displayValue}
               </div>
               <div style={{fontSize: 38, fontWeight: 620, lineHeight: 1.4, marginTop: 48}}>{metric.label}</div>
               {metric.progress !== undefined ? (
