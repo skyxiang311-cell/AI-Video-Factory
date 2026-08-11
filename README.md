@@ -2,7 +2,7 @@
 
 AI Video Factory 是一个面向中国抖音、小红书知识型短视频的自动化生产项目。它将 PDF、文章、截图或文字资料转化为适合中国用户观看和收藏的原创口播内容，再通过结构化分镜驱动配音、字幕、动画与成片渲染。
 
-当前仓库处于第二阶段：已建立不依赖外部 AI API 的最小 Knowledge 视频链路，可将固定 Storyboard JSON 实际渲染为 MP4。当前没有真实 AI 内容生成或中文配音，也不包含任何真实 API Key。
+当前仓库已完成第三阶段 3.1：Knowledge Demo 可使用 Edge TTS 生成真实中文配音，并根据实际音频时长和词边界重新计算场景与字幕时间，再由 Remotion 渲染为带音轨的 MP4。当前仍未接入 AI 内容生成、PDF、OCR 或素材搜索，也不包含任何真实 API Key。
 
 ## 项目目标
 
@@ -91,31 +91,33 @@ output/<job-id>/
 
 这些产物构成阶段缓存。修改画面时可以从 `storyboard.json` 或渲染阶段继续执行，无需重新生成分析、脚本和配音；修改口播时也只需重跑受影响的下游阶段。
 
-## 第二阶段最小链路
+## Knowledge 配音 Demo
 
 当前 Demo 使用仓库内固定的原创中文 `sample-storyboard.json`，用于证明以下核心路径稳定：
 
 ```text
-Storyboard JSON → Schema 校验 → Remotion → 1080×1920 H.264 MP4
+Storyboard voiceText → Edge TTS → 真实音频时长 / 词边界 → 动态字幕与场景时间轴 → Remotion → 1080×1920 H.264 MP4
 ```
 
-Storyboard V1.1 通过 `visualType` 和强类型 `visualData` 驱动 Hook、Diagram、Stat、Comparison、Summary 五类场景。品牌区域由根级 `branding` 配置控制，默认关闭；渲染层不写死文章内容或品牌名称。
+Storyboard 通过 `visualType` 和强类型 `visualData` 驱动 Hook、Diagram、Stat、Comparison、Summary 五类场景。渲染后的 V1.2 Storyboard 额外保存实际场景口播范围、字幕 token 时间和音频元数据。品牌区域由根级 `branding` 配置控制，默认关闭；渲染层不写死文章内容、口播或品牌名称。
 
-运行环境要求 Node.js 22.20.0 或兼容版本。首次安装和渲染可能下载 Remotion 使用的 Chromium：
+运行环境要求 Node.js 22.20.0 或兼容版本、Python 3.9 或更高版本。`voice:demo` 会在首次运行时创建未提交的 `.venv` 并安装锁定版本 `edge-tts==7.2.8`；生成真实配音需要联网。首次渲染可能下载 Remotion 使用的 Chromium：
 
 ```bash
 npm install
 npm run preview
+npm run voice:demo
 npm test
 npm run render:demo
 ```
 
 - `npm run preview` 启动 Remotion Studio；因为使用 `--no-open`，请打开终端输出的本地 URL。
-- `npm test` 运行 Storyboard Schema、时间轴、任务产物和真实 MP4 渲染冒烟测试。
-- `npm run render:demo` 渲染固定 30 秒、30fps 的视觉升级 Demo，成片位于 `output/knowledge-visual-demo/final.mp4`。
-- Demo 的八项中间产物均保存在 `output/knowledge-visual-demo/`，可用于后续局部重跑。
+- `npm run voice:demo` 生成真实中文 `voice.mp3`、Edge 词边界字幕和音频驱动的 Storyboard，并检查配音不是静音。
+- `npm test` 运行 Storyboard Schema、词边界、字幕回退、动态时间轴、媒体元数据和带音频 MP4 冒烟测试。
+- `npm run render:demo` 复用有效配音并渲染 30fps 成片，时长由真实语音决定，不再固定为 30 秒。
+- Demo 产物保存在 `output/knowledge-voice-demo/`，其中额外包含 `voice.json` 和分幕音频，均不会提交 Git。
 
-本阶段未配置 OpenAI、Gemini、OCR、真实 TTS、素材搜索或自动发布 API。`voice.mp3` 是明确标记、且不混入成片的静音占位音轨，不能视为真实中文配音。
+本阶段只接入无需 API Key 的 Edge TTS，不包含 OpenAI、Gemini、PDF、OCR、素材搜索或自动发布。Edge TTS 由 adapter 封装，未来可以替换为其他语音服务而不修改 Storyboard 与 Remotion 组件。
 
 ## 未来使用方式
 

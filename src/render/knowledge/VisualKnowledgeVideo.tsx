@@ -1,6 +1,7 @@
 import {TransitionSeries} from "@remotion/transitions";
+import {Audio} from "@remotion/media";
 import {Fragment} from "react";
-import {AbsoluteFill} from "remotion";
+import {AbsoluteFill, staticFile} from "remotion";
 import type {VisualStoryboard} from "../../storyboard/visual-schema";
 import {buildVisualTimeline} from "../../storyboard/visual-timeline";
 import {VisualSceneRenderer} from "./VisualSceneRenderer";
@@ -11,6 +12,7 @@ export const VisualKnowledgeVideo = (storyboard: VisualStoryboard) => {
   const timeline = buildVisualTimeline(storyboard);
   return (
     <AbsoluteFill>
+      {storyboard.audio.enabled ? <Audio src={staticFile(storyboard.audio.src)} /> : null}
       <TransitionSeries>
         {timeline.items.map((item, index) => {
           const transition = getTransition(item.scene, storyboard.format.fps);

@@ -15,7 +15,7 @@ describe("createDemoArtifacts", () => {
     ).toBe(true);
     expect(
       Object.values(first).every(
-        (artifact) => artifact.mode === "fixed-local-demo",
+        (artifact) => artifact.mode === "voice-driven-local-demo",
       ),
     ).toBe(true);
   });
@@ -28,21 +28,23 @@ describe("createDemoArtifacts", () => {
         sceneId: scene.id,
         startMs: scene.startMs,
         endMs: scene.endMs,
+        speechStartMs: scene.speechStartMs ?? scene.startMs,
+        speechEndMs: scene.speechEndMs ?? scene.endMs,
         text: scene.voiceText,
       })),
     );
     expect(artifacts.subtitles.captions).toEqual(sampleStoryboard.captions);
   });
 
-  it("declares the silent voice placeholder truthfully", () => {
+  it("declares the preview-only audio state truthfully", () => {
     const {assets} = createDemoArtifacts(sampleStoryboard);
 
     expect({assets: assets.assets, voice: assets.voice}).toEqual({
       assets: [],
       voice: {
-        kind: "silent-demo-placeholder",
+        kind: "preview-without-audio",
         usedInRender: false,
-        reason: "真实中文配音不在第二阶段范围内",
+        reason: "仅用于未生成配音前的 Studio 视觉预览",
       },
     });
   });

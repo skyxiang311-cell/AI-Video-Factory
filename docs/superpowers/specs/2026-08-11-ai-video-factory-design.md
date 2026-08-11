@@ -273,3 +273,33 @@ output/<job-id>/
 ## 15. 下一阶段建议（待确认后执行）
 
 第二阶段应优先定义可校验的 JSON Schema/TypeScript 类型与本地任务编排器，先打通一个最小 Knowledge 示例的“固定输入 → 固定 Storyboard → Remotion 预览 → MP4”链路，再逐步接入内容模型、配音和素材生成。用户确认之前不开始第二阶段实现。
+
+## 16. 第三阶段 3.1：真实配音驱动时间轴
+
+Knowledge Demo 的口播由 TTS adapter 生成。第一版 adapter 使用 `edge-tts`，不需要 API Key；渲染层只依赖统一的音频、边界和时长结果，不依赖具体供应商。
+
+处理顺序固定为：
+
+```text
+Storyboard voiceText
+        ↓
+按场景生成真实中文配音与 WordBoundary
+        ↓
+FFmpeg 合并 voice.mp3
+        ↓
+读取最终实际音频时长
+        ↓
+解析场景 start/end 与 speechStart/speechEnd
+        ↓
+生成真实时间字幕
+        ↓
+Remotion 动态总帧数与音频轨
+        ↓
+H.264 + AAC MP4
+```
+
+字幕优先使用 Edge 词边界。边界缺失、时间不单调或文本覆盖率不足时，按真实场景音频时长做确定性字符权重分配，并在字幕中记录 `alignmentSource`。所有字幕必须落在所属口播和视频总时长内。
+
+生成后的 `storyboard.json` 使用 V1.2，`format.durationMs` 与 `audio.durationMs` 必须一致；最终帧数向上取整，避免截断最后一个音节。`voice.json` 记录供应商、声音、语速、文本指纹、分幕时长、词边界、文件大小和非静音检查结果。
+
+3.1 不包含 AI 内容生成、PDF、OCR、外部素材搜索或自动发布。

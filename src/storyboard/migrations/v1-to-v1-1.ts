@@ -91,9 +91,12 @@ export const migrateStoryboardV1ToV1_1 = (
   format: storyboard.format,
   template: storyboard.template,
   branding: {enabled: false},
+  audio: {enabled: false},
   scenes: storyboard.scenes.map(migrateScene),
   captions: storyboard.captions.map((caption) => ({
     ...caption,
     emphasis: [],
+    tokens: [],
+    alignmentSource: "fixed-preview" as const,
   })),
 });

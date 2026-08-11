@@ -1,6 +1,6 @@
 import type {VisualStoryboard} from "../storyboard/visual-schema";
 
-const DEMO_MODE = "fixed-local-demo" as const;
+const DEMO_MODE = "voice-driven-local-demo" as const;
 const DEMO_WARNING =
   "此固定样例仅用于验证 Storyboard 到 MP4 的渲染链路，不代表已完成外部事实核验。";
 
@@ -44,6 +44,8 @@ export const createDemoArtifacts = (storyboard: VisualStoryboard) => {
         sceneId: scene.id,
         startMs: scene.startMs,
         endMs: scene.endMs,
+        speechStartMs: scene.speechStartMs ?? scene.startMs,
+        speechEndMs: scene.speechEndMs ?? scene.endMs,
         text: scene.voiceText,
       })),
       warning: DEMO_WARNING,
@@ -57,9 +59,17 @@ export const createDemoArtifacts = (storyboard: VisualStoryboard) => {
       ...common,
       assets: [],
       voice: {
-        kind: "silent-demo-placeholder" as const,
-        usedInRender: false,
-        reason: "真实中文配音不在第二阶段范围内",
+        kind: storyboard.audio.enabled ? "edge-tts" as const : "preview-without-audio" as const,
+        usedInRender: storyboard.audio.enabled,
+        ...(storyboard.audio.enabled
+          ? {
+              src: storyboard.audio.src,
+              durationMs: storyboard.audio.durationMs,
+              voice: storyboard.audio.voice,
+              rate: storyboard.audio.rate,
+              fingerprint: storyboard.audio.fingerprint,
+            }
+          : {reason: "仅用于未生成配音前的 Studio 视觉预览"}),
       },
       warning: DEMO_WARNING,
     },

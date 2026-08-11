@@ -39,6 +39,7 @@ temp/
 .pytest_cache/
 __pycache__/
 *.py[cod]
+.venv/
 
 # Remotion local caches
 .remotion/

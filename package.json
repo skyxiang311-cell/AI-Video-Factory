@@ -11,12 +11,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "voice:demo": "tsx scripts/voice-demo.ts",
     "render:demo": "tsx scripts/render-demo.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
     "@remotion/captions": "4.0.507",
+    "@remotion/media": "4.0.507",
     "@remotion/transitions": "4.0.507",
+    "mediabunny": "1.50.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "remotion": "4.0.507",

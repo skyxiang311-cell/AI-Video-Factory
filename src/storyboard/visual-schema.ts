@@ -24,6 +24,12 @@ const CaptionEmphasisSchema = z.object({
   style: z.enum(["accent", "strong", "large"]),
 });
 
+const CaptionTokenSchema = z.object({
+  text: z.string().min(1),
+  startMs: z.number().int().nonnegative(),
+  endMs: z.number().int().positive(),
+});
+
 export const VisualCaptionSchema = z.object({
   text: z.string().min(1).max(24),
   startMs: z.number().int().nonnegative(),
@@ -31,6 +37,12 @@ export const VisualCaptionSchema = z.object({
   timestampMs: z.number().int().nonnegative().nullable(),
   confidence: z.number().min(0).max(1).nullable(),
   emphasis: z.array(CaptionEmphasisSchema).max(2).default([]),
+  tokens: z.array(CaptionTokenSchema).default([]),
+  alignmentSource: z.enum([
+    "fixed-preview",
+    "edge-word-boundary",
+    "duration-weighted-fallback",
+  ]).default("fixed-preview"),
 });
 
 const HookSceneSchema = z.object({
@@ -138,6 +150,8 @@ const VisualSceneBaseSchema = z.object({
   id: z.string().regex(/^scene-[a-z0-9-]+$/),
   startMs: z.number().int().nonnegative(),
   endMs: z.number().int().positive(),
+  speechStartMs: z.number().int().nonnegative().optional(),
+  speechEndMs: z.number().int().positive().optional(),
   purpose: z.enum(["hook", "context", "knowledge", "summary"]),
   voiceText: z.string().min(1),
   visualIntent: z.string().min(1),
@@ -163,7 +177,7 @@ export const BrandingSchema = z.discriminatedUnion("enabled", [
 ]);
 
 export const VisualStoryboardPropsSchema = z.object({
-  schemaVersion: z.literal("1.1"),
+  schemaVersion: z.union([z.literal("1.1"), z.literal("1.2")]),
   jobId: z.string().regex(/^[a-z0-9][a-z0-9-]{2,63}$/),
   format: z.object({
     width: z.literal(1080),
@@ -173,6 +187,18 @@ export const VisualStoryboardPropsSchema = z.object({
   }),
   template: z.literal("knowledge"),
   branding: BrandingSchema,
+  audio: z.discriminatedUnion("enabled", [
+    z.object({enabled: z.literal(false)}),
+    z.object({
+      enabled: z.literal(true),
+      src: z.string().min(1),
+      durationMs: z.number().int().positive(),
+      provider: z.string().min(1),
+      voice: z.string().min(1),
+      rate: z.string().min(1),
+      fingerprint: z.string().min(1),
+    }),
+  ]).default({enabled: false}),
   scenes: z.array(VisualSceneSchema).min(1),
   captions: z.array(VisualCaptionSchema).min(1),
 });
@@ -203,6 +229,15 @@ const validateVisualStoryboard = (
     }
     if (scene.purpose === "hook" && scene.endMs > 3000) {
       addIssue(context, ["scenes", index, "endMs"], "hook 不得超过前三秒");
+    }
+    if (
+      scene.speechStartMs !== undefined &&
+      scene.speechEndMs !== undefined &&
+      (scene.speechStartMs < scene.startMs ||
+        scene.speechEndMs <= scene.speechStartMs ||
+        scene.speechEndMs > scene.endMs)
+    ) {
+      addIssue(context, ["scenes", index, "speechEndMs"], "口播时间必须落在所属场景内");
     }
     if (index === storyboard.scenes.length - 1 && scene.visualType !== "summary") {
       addIssue(context, ["scenes", index, "visualType"], "最后一幕必须使用 summary");
@@ -244,6 +279,12 @@ const validateVisualStoryboard = (
   if (storyboard.scenes.at(-1)?.endMs !== storyboard.format.durationMs) {
     addIssue(context, ["scenes", storyboard.scenes.length - 1, "endMs"], "最后一幕结束时间必须等于视频总时长");
   }
+  if (
+    storyboard.audio.enabled &&
+    storyboard.audio.durationMs !== storyboard.format.durationMs
+  ) {
+    addIssue(context, ["audio", "durationMs"], "音频时长必须等于视频时间轴时长");
+  }
   storyboard.captions.forEach((caption, index) => {
     if (caption.endMs <= caption.startMs || caption.endMs > storyboard.format.durationMs) {
       addIssue(context, ["captions", index, "endMs"], "字幕时间必须有效且落在视频总时长内");
@@ -254,6 +295,15 @@ const validateVisualStoryboard = (
     caption.emphasis.forEach((value, emphasisIndex) => {
       if (!caption.text.includes(value.text)) {
         addIssue(context, ["captions", index, "emphasis", emphasisIndex, "text"], "字幕强调词必须出现在字幕文本中");
+      }
+    });
+    caption.tokens.forEach((token, tokenIndex) => {
+      if (
+        token.endMs <= token.startMs ||
+        token.startMs < caption.startMs ||
+        token.endMs > caption.endMs
+      ) {
+        addIssue(context, ["captions", index, "tokens", tokenIndex], "字幕 token 时间必须落在字幕范围内");
       }
     });
     try {
