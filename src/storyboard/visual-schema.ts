@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {layoutChineseCaption} from "./caption-layout";
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const CURRENCY_UNIT_PATTERN = /(日元|人民币|美元|欧元|英镑|港元|新台币)/;
@@ -250,6 +251,11 @@ const validateVisualStoryboard = (
         addIssue(context, ["captions", index, "emphasis", emphasisIndex, "text"], "字幕强调词必须出现在字幕文本中");
       }
     });
+    try {
+      layoutChineseCaption(caption.text);
+    } catch {
+      addIssue(context, ["captions", index, "text"], "字幕必须能在最多两行内安全展示");
+    }
   });
 };
 
