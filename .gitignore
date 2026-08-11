@@ -39,3 +39,7 @@ temp/
 .pytest_cache/
 __pycache__/
 *.py[cod]
+
+# Remotion local caches
+.remotion/
+remotion-bundle/
