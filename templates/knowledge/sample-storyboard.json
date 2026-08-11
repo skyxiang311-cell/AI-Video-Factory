@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1.0",
+  "jobId": "knowledge-demo",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "durationMs": 24000
+  },
+  "template": "knowledge",
+  "scenes": [
+    {
+      "id": "scene-hook",
+      "startMs": 0,
+      "endMs": 3000,
+      "purpose": "hook",
+      "voiceText": "同一页笔记看三遍，不如合上书回忆一次。",
+      "onScreenText": ["看三遍，不如回忆一次", "真正有效的学习，从合上书开始"],
+      "visualIntent": "用重复阅读和主动回忆的反差建立前三秒注意力",
+      "assetRefs": [],
+      "emphasis": ["合上书回忆一次"],
+      "contentFlags": [],
+      "transition": "fade",
+      "transitionDurationMs": 300,
+      "presentation": {
+        "variant": "hook",
+        "accentColor": "#ffd84d"
+      }
+    },
+    {
+      "id": "scene-context",
+      "startMs": 3000,
+      "endMs": 6500,
+      "purpose": "context",
+      "voiceText": "把知识变成真正能调用的能力，只需要记住这 3 步。",
+      "onScreenText": ["把输入变成能力", "不是多看，而是正确练习"],
+      "visualIntent": "用一个醒目的三步数字卡片建立记忆框架",
+      "assetRefs": [],
+      "emphasis": ["3 步"],
+      "contentFlags": [],
+      "transition": "slide-left",
+      "transitionDurationMs": 300,
+      "presentation": {
+        "variant": "stat-card",
+        "accentColor": "#62e6a8",
+        "metric": {
+          "value": "3",
+          "unit": "步",
+          "label": "把输入变成能调用的知识"
+        }
+      }
+    },
+    {
+      "id": "scene-point-one",
+      "startMs": 6500,
+      "endMs": 11000,
+      "purpose": "knowledge",
+      "voiceText": "第一，先回忆，再核对。暴露缺口，比重复阅读更重要。",
+      "onScreenText": ["先回忆，再核对", "合上资料，说出你还记得什么"],
+      "visualIntent": "把主动回忆动作做成第一张步骤卡",
+      "assetRefs": [],
+      "emphasis": ["先回忆，再核对"],
+      "contentFlags": [],
+      "transition": "slide-left",
+      "transitionDurationMs": 300,
+      "presentation": {
+        "variant": "knowledge-point",
+        "accentColor": "#70a7ff",
+        "pointNumber": 1
+      }
+    },
+    {
+      "id": "scene-point-two",
+      "startMs": 11000,
+      "endMs": 15500,
+      "purpose": "knowledge",
+      "voiceText": "第二，拉开复习间隔。在快忘的时候，再主动提取一次。",
+      "onScreenText": ["拉开复习间隔", "别连着刷，在快忘时再回来"],
+      "visualIntent": "用时间间隔的层次表现第二个知识点",
+      "assetRefs": [],
+      "emphasis": ["拉开复习间隔"],
+      "contentFlags": [],
+      "transition": "slide-left",
+      "transitionDurationMs": 300,
+      "presentation": {
+        "variant": "knowledge-point",
+        "accentColor": "#ff8f70",
+        "pointNumber": 2
+      }
+    },
+    {
+      "id": "scene-point-three",
+      "startMs": 15500,
+      "endMs": 20000,
+      "purpose": "knowledge",
+      "voiceText": "第三，混合相近问题，让大脑练习判断该用哪一种方法。",
+      "onScreenText": ["混合相近问题", "真正掌握，是知道何时用哪一招"],
+      "visualIntent": "用交错排列的信息块呈现第三个知识点",
+      "assetRefs": [],
+      "emphasis": ["混合相近问题"],
+      "contentFlags": [],
+      "transition": "fade",
+      "transitionDurationMs": 300,
+      "presentation": {
+        "variant": "knowledge-point",
+        "accentColor": "#c997ff",
+        "pointNumber": 3
+      }
+    },
+    {
+      "id": "scene-summary",
+      "startMs": 20000,
+      "endMs": 24000,
+      "purpose": "summary",
+      "voiceText": "记住这个顺序：回忆、间隔、交错。收藏下来，下次学习直接照着做。",
+      "onScreenText": ["回忆 → 间隔 → 交错", "把这个顺序收藏下来", "下次学习，直接照着做"],
+      "visualIntent": "用可截图收藏的结论卡压缩整条视频",
+      "assetRefs": [],
+      "emphasis": ["回忆 → 间隔 → 交错"],
+      "contentFlags": [],
+      "transition": "cut",
+      "transitionDurationMs": 0,
+      "presentation": {
+        "variant": "summary-card",
+        "accentColor": "#ffd84d"
+      }
+    }
+  ],
+  "captions": [
+    {"text": "同一页笔记看三遍", "startMs": 0, "endMs": 1500, "timestampMs": null, "confidence": null},
+    {"text": "不如合上书回忆一次", "startMs": 1500, "endMs": 3000, "timestampMs": null, "confidence": null},
+    {"text": "把知识变成能调用的能力", "startMs": 3000, "endMs": 5000, "timestampMs": null, "confidence": null},
+    {"text": "只需要记住这三个动作", "startMs": 5000, "endMs": 6500, "timestampMs": null, "confidence": null},
+    {"text": "第一 先回忆再核对", "startMs": 6500, "endMs": 8500, "timestampMs": null, "confidence": null},
+    {"text": "暴露缺口比重复阅读更重要", "startMs": 8500, "endMs": 11000, "timestampMs": null, "confidence": null},
+    {"text": "第二 拉开复习间隔", "startMs": 11000, "endMs": 13200, "timestampMs": null, "confidence": null},
+    {"text": "在快忘时再主动提取", "startMs": 13200, "endMs": 15500, "timestampMs": null, "confidence": null},
+    {"text": "第三 混合相近问题", "startMs": 15500, "endMs": 17600, "timestampMs": null, "confidence": null},
+    {"text": "让大脑学会选择方法", "startMs": 17600, "endMs": 20000, "timestampMs": null, "confidence": null},
+    {"text": "记住这个顺序", "startMs": 20000, "endMs": 22000, "timestampMs": null, "confidence": null},
+    {"text": "回忆 间隔 交错", "startMs": 22000, "endMs": 24000, "timestampMs": null, "confidence": null}
+  ]
+}
