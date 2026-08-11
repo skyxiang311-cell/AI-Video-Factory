@@ -7,9 +7,11 @@ import {
   validateSelectedAngleRefs,
 } from "../src/research/book/traceability";
 import {VideoAnglesSchema} from "../src/research/book/angle-schema";
+import {BookAnalysisSchema} from "../src/research/book/book-analysis-schema";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
 import {SelectedAngleSchema} from "../src/research/book/angle-schema";
+import {VerificationRecordSchema} from "../src/research/book/verification-schema";
 
 const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
   await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
@@ -67,11 +69,41 @@ const videoAngle = (claimIds: string[]) => ({
 });
 
 describe("book traceability validation", () => {
+  it("keeps unverified claims and not-verifiable synthetic evidence out of an approved selected angle", async () => {
+    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("sample-chapter-analysis.json"));
+    const verification = VerificationRecordSchema.array().parse(
+      await loadBookFixture("sample-verification.json"),
+    );
+    const angles = VideoAnglesSchema.parse(await loadBookFixture("sample-video-angles.json"));
+    const selected = SelectedAngleSchema.parse(await loadBookFixture("sample-selected-angle.json"));
+    const analysis = BookAnalysisSchema.parse(await loadBookFixture("sample-book-analysis.json"));
+    const claimsById = new Map(chapter.claims.map((claim) => [claim.claimId, claim]));
+    const evidenceById = new Map(chapter.evidence.map((evidence) => [evidence.evidenceId, evidence]));
+    const verdictsByClaimId = new Map(verification.map((record) => [record.claimId, record.verdict]));
+    const usableClaim = (claimId: string): boolean => {
+      const claim = claimsById.get(claimId);
+      return claim?.verificationStatus === "verified" || claim?.verificationStatus === "not_required";
+    };
+    const recommended = angles.candidates.find((angle) => angle.recommended);
+
+    expect(analysis.status).toBe("approved_for_video");
+    expect(analysis.recommendedAngleId).toBe(recommended?.angleId);
+    expect(analysis.selectedAngle).toEqual(selected);
+    expect(selected.mustInclude.claims.filter((claimId) => !usableClaim(claimId))).toEqual([]);
+    expect(recommended?.claimIds.filter((claimId) => !usableClaim(claimId))).toEqual([]);
+    expect(selected.mustInclude.evidence.filter((evidenceId) =>
+      evidenceById.get(evidenceId)?.supportsClaimIds.some((claimId) => !usableClaim(claimId)),
+    )).toEqual([]);
+    expect(selected.mustInclude.claims.filter((claimId) =>
+      verdictsByClaimId.get(claimId) === "not_verifiable",
+    )).toEqual([]);
+  });
+
   it("cross-validates every synthetic fixture reference from source blocks through the selected angle", async () => {
-    const source = BookSourceSchema.parse(await loadBookFixture("book-source.json"));
-    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("chapter-analysis.json"));
-    const angles = VideoAnglesSchema.parse(await loadBookFixture("video-angles.json"));
-    const selected = SelectedAngleSchema.parse(await loadBookFixture("selected-angle.json"));
+    const source = BookSourceSchema.parse(await loadBookFixture("sample-book-source.json"));
+    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("sample-chapter-analysis.json"));
+    const angles = VideoAnglesSchema.parse(await loadBookFixture("sample-video-angles.json"));
+    const selected = SelectedAngleSchema.parse(await loadBookFixture("sample-selected-angle.json"));
     const claimIds = new Set(chapter.claims.map((claim) => claim.claimId));
     const evidenceIds = new Set(chapter.evidence.map((evidence) => evidence.evidenceId));
 

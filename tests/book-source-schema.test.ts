@@ -102,7 +102,7 @@ const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
 
 describe("BookSourceSchema", () => {
   it("parses the synthetic two-page source fixture with high-confidence source blocks", async () => {
-    const source = BookSourceSchema.parse(await loadBookFixture("book-source.json"));
+    const source = BookSourceSchema.parse(await loadBookFixture("sample-book-source.json"));
 
     expect(source.metadata.pageCount).toBe(2);
     expect(source.extractionQuality.overallConfidence).toBeGreaterThan(0.95);

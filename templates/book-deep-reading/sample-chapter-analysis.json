@@ -43,7 +43,7 @@
         }
       ],
       "confidence": 0.97,
-      "verificationStatus": "needs_external_check"
+      "verificationStatus": "not_required"
     },
     {
       "claimId": "claim-feedback-window",

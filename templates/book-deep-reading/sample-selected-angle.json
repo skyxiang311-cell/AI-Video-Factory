@@ -1,0 +1,23 @@
+{
+  "angleId": "angle-error-hypothesis-note",
+  "title": "每次练习只记一个错误假设，复盘才不会写成流水账",
+  "targetDurationSec": 300,
+  "centralQuestion": "怎样把一次练习后的复盘变成下一次可以验证的具体调整，而不是流水账？",
+  "thesis": "微型复盘的可用起点，是在每次行动后写下一个具体偏差，并把它保留为下一次行动可检验的调整。",
+  "mustInclude": {
+    "claims": ["claim-micro-retrospective"],
+    "evidence": ["evidence-micro-retrospective-observation"],
+    "examples": ["每次演讲排练后只记下一处可能被误解的句子，并在下一次排练前请同伴检查它是否仍然发生。"],
+    "counterpoints": ["一次性项目或没有可观察结果的探索，不一定适合这种微型复盘。", "复盘记录必须足够具体，否则下一次行动无法验证是否调整成功。"]
+  },
+  "optional": ["展示一个“偏差—下一次验证”的两步卡片。"],
+  "exclude": ["把合成的 37% 说成真实实验结果。", "将书内作者观察泛化为已被外部研究证实的效果。"],
+  "sourceDisplayRequirements": ["书内观点标注为“合成书籍示例：第 1 页”。", "不展示合成的 37% 统计图表。"],
+  "desiredViewerTakeaway": "下一次练习后，先记录一个可验证的偏差，再用下一次行动检查它是否被调整。",
+  "endingJudgment": "好的复盘不是写得长，而是能为下一次行动留下一个可验证的改动。",
+  "contentBudget": {
+    "maxClaims": 1,
+    "maxExamples": 1,
+    "maxConcepts": 3
+  }
+}

@@ -64,7 +64,7 @@ const validChapterAnalysis = () => ({
 
 describe("book knowledge schemas", () => {
   it("parses the synthetic chapter analysis with two scoped traceable claims and evidence items", async () => {
-    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("chapter-analysis.json"));
+    const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("sample-chapter-analysis.json"));
 
     expect(chapter.claims).toHaveLength(2);
     expect(chapter.evidence).toHaveLength(2);

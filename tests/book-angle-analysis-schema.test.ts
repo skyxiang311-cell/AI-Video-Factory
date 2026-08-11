@@ -63,11 +63,11 @@ const validBookAnalysis = () => ({
   practicalFrameworks: ["practice-feedback-adjust"],
   recommendedAngleId: "angle-feedback-loop",
   artifacts: {
-    source: "book-source.json",
-    chapters: "chapter-analysis.json",
-    synthesis: "book-synthesis.json",
-    verification: "verification.json",
-    angles: "video-angles.json",
+    source: "sample-book-source.json",
+    chapters: "sample-chapter-analysis.json",
+    synthesis: "sample-book-synthesis.json",
+    verification: "sample-verification.json",
+    angles: "sample-video-angles.json",
   },
   qualityGate: {passed: true},
   synthesis: {
@@ -97,9 +97,9 @@ describe("book angle and unified analysis schemas", () => {
   });
 
   it("parses three synthetic angle candidates, one recommendation, and a five-minute selected angle", async () => {
-    const angles = VideoAnglesSchema.parse(await loadBookFixture("video-angles.json"));
-    const selected = SelectedAngleSchema.parse(await loadBookFixture("selected-angle.json"));
-    const analysis = BookAnalysisSchema.parse(await loadBookFixture("book-analysis.json"));
+    const angles = VideoAnglesSchema.parse(await loadBookFixture("sample-video-angles.json"));
+    const selected = SelectedAngleSchema.parse(await loadBookFixture("sample-selected-angle.json"));
+    const analysis = BookAnalysisSchema.parse(await loadBookFixture("sample-book-analysis.json"));
 
     expect(angles.candidates).toHaveLength(3);
     expect(angles.candidates.filter((angle) => angle.recommended)).toHaveLength(1);
@@ -151,7 +151,7 @@ describe("book angle and unified analysis schemas", () => {
       coreClaimIds: ["claim-focused-practice"],
       verifiedClaimIds: ["claim-focused-practice"],
       recommendedAngleId: "angle-feedback-loop",
-      artifacts: {verification: "verification.json"},
+      artifacts: {verification: "sample-verification.json"},
       qualityGate: {passed: true},
     });
   });

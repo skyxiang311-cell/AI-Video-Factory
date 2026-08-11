@@ -39,8 +39,8 @@ const validVerificationRecord = () => ({
 
 describe("book synthesis and verification schemas", () => {
   it("parses synthetic synthesis and verification without presenting synthetic findings as research", async () => {
-    const synthesis = BookSynthesisSchema.parse(await loadBookFixture("book-synthesis.json"));
-    const verification = VerificationRecordSchema.array().parse(await loadBookFixture("verification.json"));
+    const synthesis = BookSynthesisSchema.parse(await loadBookFixture("sample-book-synthesis.json"));
+    const verification = VerificationRecordSchema.array().parse(await loadBookFixture("sample-verification.json"));
 
     expect(synthesis.claimRelations).toHaveLength(1);
     expect(verification).toHaveLength(1);

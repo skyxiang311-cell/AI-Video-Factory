@@ -7,13 +7,13 @@
   "verifiedClaimIds": [],
   "importantLimitations": ["37% 是明确标注的合成统计，不能作为真实外部证据。", "该机制只适用于可重复并可在下一次行动前获得具体反馈的任务。"],
   "practicalFrameworks": ["记录一个偏差 → 在下一次行动前获取具体反馈 → 验证一个调整"],
-  "recommendedAngleId": "angle-feedback-before-next-action",
+  "recommendedAngleId": "angle-error-hypothesis-note",
   "artifacts": {
-    "source": "book-source.json",
-    "chapters": "chapter-analysis.json",
-    "synthesis": "book-synthesis.json",
-    "verification": "verification.json",
-    "angles": "video-angles.json"
+    "source": "sample-book-source.json",
+    "chapters": "sample-chapter-analysis.json",
+    "synthesis": "sample-book-synthesis.json",
+    "verification": "sample-verification.json",
+    "angles": "sample-video-angles.json"
   },
   "qualityGate": {
     "passed": true,
@@ -58,7 +58,7 @@
         "title": "为什么复盘越勤，反而越容易学会？关键不在总结，而在反馈赶不赶得上下一次行动",
         "premise": "用“下一次行动前能否收到具体反馈”解释微型复盘的价值，并明确虚构统计不能当作研究结论。",
         "eligible": true,
-        "recommended": true,
+        "recommended": false,
         "claimIds": ["claim-micro-retrospective", "claim-feedback-window"],
         "audienceRelevance": 91,
         "practicalValue": 93,
@@ -98,7 +98,7 @@
         "title": "每次练习只记一个错误假设，复盘才不会写成流水账",
         "premise": "把书内的微型复盘定义变成一个记录错误假设的轻量练习。",
         "eligible": true,
-        "recommended": false,
+        "recommended": true,
         "claimIds": ["claim-micro-retrospective"],
         "audienceRelevance": 83,
         "practicalValue": 90,
@@ -116,24 +116,24 @@
     ]
   },
   "selectedAngle": {
-    "angleId": "angle-feedback-before-next-action",
-    "title": "为什么复盘越勤，反而越容易学会？关键不在总结，而在反馈赶不赶得上下一次行动",
+    "angleId": "angle-error-hypothesis-note",
+    "title": "每次练习只记一个错误假设，复盘才不会写成流水账",
     "targetDurationSec": 300,
-    "centralQuestion": "为什么复盘频率本身不够，反馈是否赶在下一次行动前才是关键？",
-    "thesis": "对可重复的练习而言，微型复盘只有接上具体且及时的反馈，才能持续把偏差变成下一轮可检验的调整。",
+    "centralQuestion": "怎样把一次练习后的复盘变成下一次可以验证的具体调整，而不是流水账？",
+    "thesis": "微型复盘的可用起点，是在每次行动后写下一个具体偏差，并把它保留为下一次行动可检验的调整。",
     "mustInclude": {
-      "claims": ["claim-micro-retrospective", "claim-feedback-window"],
-      "evidence": ["evidence-micro-retrospective-observation", "evidence-synthetic-feedback-statistic"],
+      "claims": ["claim-micro-retrospective"],
+      "evidence": ["evidence-micro-retrospective-observation"],
       "examples": ["每次演讲排练后只记下一处可能被误解的句子，并在下一次排练前请同伴检查它是否仍然发生。"],
-      "counterpoints": ["月度复盘仍可用于整理长期模式，但它无法替代下一次行动前所需的具体反馈。", "书内 37% 数字是合成测试资料，不能作为真实研究或普遍效果承诺。"]
+      "counterpoints": ["一次性项目或没有可观察结果的探索，不一定适合这种微型复盘。", "复盘记录必须足够具体，否则下一次行动无法验证是否调整成功。"]
     },
-    "optional": ["展示一个“错误假设—反馈—调整”的三步卡片。"],
-    "exclude": ["把合成的 37% 说成真实实验结果。", "将该机制泛化到没有即时行动机会的所有学习任务。"],
-    "sourceDisplayRequirements": ["书内观点标注为“合成书籍示例：第 1–2 页”。", "出现 37% 时同步标注“合成统计，非真实研究”。", "外部核验位置标注“无真实外部来源；仅为合成 fixture”。"],
-    "desiredViewerTakeaway": "下一次练习后，不必写长篇心得；先记录一个可验证的偏差，并在下一次行动前取得具体反馈。",
-    "endingJudgment": "复盘不是一段独立的回忆时间，而是下一次行动开始前的一次校准。",
+    "optional": ["展示一个“偏差—下一次验证”的两步卡片。"],
+    "exclude": ["把合成的 37% 说成真实实验结果。", "将书内作者观察泛化为已被外部研究证实的效果。"],
+    "sourceDisplayRequirements": ["书内观点标注为“合成书籍示例：第 1 页”。", "不展示合成的 37% 统计图表。"],
+    "desiredViewerTakeaway": "下一次练习后，先记录一个可验证的偏差，再用下一次行动检查它是否被调整。",
+    "endingJudgment": "好的复盘不是写得长，而是能为下一次行动留下一个可验证的改动。",
     "contentBudget": {
-      "maxClaims": 2,
+      "maxClaims": 1,
       "maxExamples": 1,
       "maxConcepts": 3
     }
