@@ -1,4 +1,4 @@
 import sampleJson from "../../templates/knowledge/sample-storyboard.json";
-import {parseStoryboard} from "./schema";
+import {parseVisualStoryboard} from "./visual-schema";
 
-export const sampleStoryboard = parseStoryboard(sampleJson);
+export const sampleStoryboard = parseVisualStoryboard(sampleJson);

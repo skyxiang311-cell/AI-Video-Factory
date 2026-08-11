@@ -1,143 +1,190 @@
 {
-  "schemaVersion": "1.0",
-  "jobId": "knowledge-demo",
-  "format": {
-    "width": 1080,
-    "height": 1920,
-    "fps": 30,
-    "durationMs": 24000
-  },
+  "schemaVersion": "1.1",
+  "jobId": "knowledge-visual-demo",
+  "format": {"width": 1080, "height": 1920, "fps": 30, "durationMs": 30000},
   "template": "knowledge",
+  "branding": {"enabled": false},
   "scenes": [
     {
       "id": "scene-hook",
       "startMs": 0,
       "endMs": 3000,
       "purpose": "hook",
-      "voiceText": "同一页笔记看三遍，不如合上书回忆一次。",
-      "onScreenText": ["看三遍，不如回忆一次", "真正有效的学习，从合上书开始"],
-      "visualIntent": "用重复阅读和主动回忆的反差建立前三秒注意力",
+      "voiceText": "学得慢，不一定是记性差。可能只是练习顺序错了。",
+      "visualIntent": "用结论反转打破用户对记忆力的归因",
       "assetRefs": [],
-      "emphasis": ["合上书回忆一次"],
+      "emphasis": ["不一定是记性差", "练习顺序错了"],
       "contentFlags": [],
       "transition": "fade",
       "transitionDurationMs": 300,
-      "presentation": {
-        "variant": "hook",
-        "accentColor": "#ffd84d"
+      "visualType": "hook",
+      "visualData": {
+        "headline": "学得慢，不一定是记性差",
+        "supporting": "可能只是练习顺序错了",
+        "highlight": "不一定是记性差",
+        "motif": "contrast",
+        "accent": "vermilion",
+        "tone": "ink"
       }
     },
     {
-      "id": "scene-context",
+      "id": "scene-comparison",
       "startMs": 3000,
-      "endMs": 6500,
+      "endMs": 7500,
       "purpose": "context",
-      "voiceText": "把知识变成真正能调用的能力，只需要记住这 3 步。",
-      "onScreenText": ["把输入变成能力", "不是多看，而是正确练习"],
-      "visualIntent": "用一个醒目的三步数字卡片建立记忆框架",
+      "voiceText": "只盯着答案反复看，得到的是熟悉感。合上资料主动回忆，才是在练习真正调用。",
+      "visualIntent": "并列比较重复阅读与主动回忆的差异",
       "assetRefs": [],
-      "emphasis": ["3 步"],
+      "emphasis": ["熟悉感", "主动回忆"],
       "contentFlags": [],
       "transition": "slide-left",
-      "transitionDurationMs": 300,
-      "presentation": {
-        "variant": "stat-card",
-        "accentColor": "#62e6a8",
-        "metric": {
-          "value": "3",
-          "unit": "步",
-          "label": "把输入变成能调用的知识"
+      "transitionDurationMs": 360,
+      "visualType": "comparison",
+      "visualData": {
+        "title": "熟悉，不等于真正掌握",
+        "mode": "wrong-right",
+        "accent": "vermilion",
+        "tone": "paper",
+        "left": {
+          "label": "错误路径",
+          "headline": "反复阅读",
+          "points": ["答案始终在眼前", "只获得熟悉感"],
+          "icon": "repeat"
+        },
+        "right": {
+          "label": "正确练习",
+          "headline": "主动回忆",
+          "points": ["先离开现成答案", "练习真正调用"],
+          "icon": "brain"
         }
       }
     },
     {
-      "id": "scene-point-one",
-      "startMs": 6500,
-      "endMs": 11000,
+      "id": "scene-recall-loop",
+      "startMs": 7500,
+      "endMs": 12500,
       "purpose": "knowledge",
-      "voiceText": "第一，先回忆，再核对。暴露缺口，比重复阅读更重要。",
-      "onScreenText": ["先回忆，再核对", "合上资料，说出你还记得什么"],
-      "visualIntent": "把主动回忆动作做成第一张步骤卡",
+      "voiceText": "正确顺序很简单：先回忆已有内容，再核对遗漏和错误，最后只补真正的缺口。",
+      "visualIntent": "用三节点流程展示一次完整主动回忆",
       "assetRefs": [],
-      "emphasis": ["先回忆，再核对"],
+      "emphasis": ["回忆", "核对", "补真正的缺口"],
       "contentFlags": [],
-      "transition": "slide-left",
+      "transition": "slide-up",
       "transitionDurationMs": 300,
-      "presentation": {
-        "variant": "knowledge-point",
-        "accentColor": "#70a7ff",
-        "pointNumber": 1
+      "visualType": "diagram",
+      "visualData": {
+        "title": "把学习变成一个闭环",
+        "layout": "horizontal-flow",
+        "accent": "indigo",
+        "tone": "ink",
+        "nodes": [
+          {"id": "recall", "label": "主动回忆", "detail": "先说出已有内容", "icon": "brain"},
+          {"id": "check", "label": "核对缺口", "detail": "找到遗漏与错误", "icon": "search"},
+          {"id": "repair", "label": "针对补缺", "detail": "只补不会的部分", "icon": "check"}
+        ],
+        "edges": [
+          {"from": "recall", "to": "check"},
+          {"from": "check", "to": "repair"}
+        ]
       }
     },
     {
-      "id": "scene-point-two",
-      "startMs": 11000,
-      "endMs": 15500,
+      "id": "scene-framework-stat",
+      "startMs": 12500,
+      "endMs": 17500,
       "purpose": "knowledge",
-      "voiceText": "第二，拉开复习间隔。在快忘的时候，再主动提取一次。",
-      "onScreenText": ["拉开复习间隔", "别连着刷，在快忘时再回来"],
-      "visualIntent": "用时间间隔的层次表现第二个知识点",
+      "voiceText": "把输入变成能调用的能力，记住三个动作：回忆、间隔、交错练习。",
+      "visualIntent": "用大数字建立三动作记忆框架",
       "assetRefs": [],
-      "emphasis": ["拉开复习间隔"],
-      "contentFlags": [],
-      "transition": "slide-left",
-      "transitionDurationMs": 300,
-      "presentation": {
-        "variant": "knowledge-point",
-        "accentColor": "#ff8f70",
-        "pointNumber": 2
-      }
-    },
-    {
-      "id": "scene-point-three",
-      "startMs": 15500,
-      "endMs": 20000,
-      "purpose": "knowledge",
-      "voiceText": "第三，混合相近问题，让大脑练习判断该用哪一种方法。",
-      "onScreenText": ["混合相近问题", "真正掌握，是知道何时用哪一招"],
-      "visualIntent": "用交错排列的信息块呈现第三个知识点",
-      "assetRefs": [],
-      "emphasis": ["混合相近问题"],
+      "emphasis": ["三个动作", "回忆、间隔、交错练习"],
       "contentFlags": [],
       "transition": "fade",
-      "transitionDurationMs": 300,
-      "presentation": {
-        "variant": "knowledge-point",
-        "accentColor": "#c997ff",
-        "pointNumber": 3
+      "transitionDurationMs": 240,
+      "visualType": "stat",
+      "visualData": {
+        "title": "真正有效的练习框架",
+        "mode": "single",
+        "accent": "vermilion",
+        "tone": "paper",
+        "metrics": [
+          {"value": 3, "decimals": 0, "prefix": "", "suffix": "个动作", "label": "回忆 · 间隔 · 交错", "progress": 1, "icon": "bookmark"}
+        ]
+      }
+    },
+    {
+      "id": "scene-spacing-cycle",
+      "startMs": 17500,
+      "endMs": 24000,
+      "purpose": "knowledge",
+      "voiceText": "当天先做一次回忆，隔一段时间再次提取，再混合相近问题，让大脑练习选择方法。",
+      "visualIntent": "用循环图说明间隔和交错如何接续主动回忆",
+      "assetRefs": [],
+      "emphasis": ["再次提取", "选择方法"],
+      "contentFlags": [],
+      "transition": "slide-left",
+      "transitionDurationMs": 360,
+      "visualType": "diagram",
+      "visualData": {
+        "title": "让记忆经历三次不同挑战",
+        "layout": "cycle",
+        "accent": "indigo",
+        "tone": "ink",
+        "nodes": [
+          {"id": "today", "label": "当天回忆", "detail": "先主动提取", "icon": "brain"},
+          {"id": "spacing", "label": "拉开间隔", "detail": "过一段时间再来", "icon": "clock"},
+          {"id": "mix", "label": "混合判断", "detail": "选择正确方法", "icon": "shuffle"}
+        ],
+        "edges": [
+          {"from": "today", "to": "spacing"},
+          {"from": "spacing", "to": "mix"},
+          {"from": "mix", "to": "today"}
+        ]
       }
     },
     {
       "id": "scene-summary",
-      "startMs": 20000,
-      "endMs": 24000,
+      "startMs": 24000,
+      "endMs": 30000,
       "purpose": "summary",
-      "voiceText": "记住这个顺序：回忆、间隔、交错。收藏下来，下次学习直接照着做。",
-      "onScreenText": ["回忆 → 间隔 → 交错", "把这个顺序收藏下来", "下次学习，直接照着做"],
-      "visualIntent": "用可截图收藏的结论卡压缩整条视频",
+      "voiceText": "学习闭环只有三件事：主动回忆，核对缺口，再安排间隔和交错。收藏后，下次直接照着做。",
+      "visualIntent": "用可截图收藏清单压缩整条方法",
       "assetRefs": [],
-      "emphasis": ["回忆 → 间隔 → 交错"],
+      "emphasis": ["主动回忆", "核对缺口", "安排间隔和交错"],
       "contentFlags": [],
       "transition": "cut",
       "transitionDurationMs": 0,
-      "presentation": {
-        "variant": "summary-card",
-        "accentColor": "#ffd84d"
+      "visualType": "summary",
+      "visualData": {
+        "title": "下一次学习，按这个顺序",
+        "accent": "vermilion",
+        "tone": "paper",
+        "items": [
+          {"label": "先离开答案，主动回忆", "icon": "brain"},
+          {"label": "核对遗漏，只补缺口", "icon": "search"},
+          {"label": "拉开间隔，混合判断", "icon": "shuffle"}
+        ],
+        "closing": "收藏下来，下次学习直接照做"
       }
     }
   ],
   "captions": [
-    {"text": "同一页笔记看三遍", "startMs": 0, "endMs": 1500, "timestampMs": null, "confidence": null},
-    {"text": "不如合上书回忆一次", "startMs": 1500, "endMs": 3000, "timestampMs": null, "confidence": null},
-    {"text": "把知识变成能调用的能力", "startMs": 3000, "endMs": 5000, "timestampMs": null, "confidence": null},
-    {"text": "只需要记住这三个动作", "startMs": 5000, "endMs": 6500, "timestampMs": null, "confidence": null},
-    {"text": "第一 先回忆再核对", "startMs": 6500, "endMs": 8500, "timestampMs": null, "confidence": null},
-    {"text": "暴露缺口比重复阅读更重要", "startMs": 8500, "endMs": 11000, "timestampMs": null, "confidence": null},
-    {"text": "第二 拉开复习间隔", "startMs": 11000, "endMs": 13200, "timestampMs": null, "confidence": null},
-    {"text": "在快忘时再主动提取", "startMs": 13200, "endMs": 15500, "timestampMs": null, "confidence": null},
-    {"text": "第三 混合相近问题", "startMs": 15500, "endMs": 17600, "timestampMs": null, "confidence": null},
-    {"text": "让大脑学会选择方法", "startMs": 17600, "endMs": 20000, "timestampMs": null, "confidence": null},
-    {"text": "记住这个顺序", "startMs": 20000, "endMs": 22000, "timestampMs": null, "confidence": null},
-    {"text": "回忆 间隔 交错", "startMs": 22000, "endMs": 24000, "timestampMs": null, "confidence": null}
+    {"text": "学得慢，不一定是记性差", "startMs": 0, "endMs": 1500, "timestampMs": null, "confidence": null, "emphasis": [{"text": "不一定", "style": "large"}]},
+    {"text": "可能只是练习顺序错了", "startMs": 1500, "endMs": 3000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "顺序错了", "style": "accent"}]},
+    {"text": "只盯着答案反复看", "startMs": 3000, "endMs": 4500, "timestampMs": null, "confidence": null, "emphasis": [{"text": "反复看", "style": "strong"}]},
+    {"text": "熟悉感不等于真正会了", "startMs": 4500, "endMs": 6000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "不等于", "style": "large"}]},
+    {"text": "合上资料再主动回忆", "startMs": 6000, "endMs": 7500, "timestampMs": null, "confidence": null, "emphasis": [{"text": "主动回忆", "style": "accent"}]},
+    {"text": "先回忆出已有内容", "startMs": 7500, "endMs": 9250, "timestampMs": null, "confidence": null, "emphasis": [{"text": "回忆", "style": "large"}]},
+    {"text": "再核对遗漏和错误", "startMs": 9250, "endMs": 10800, "timestampMs": null, "confidence": null, "emphasis": [{"text": "核对", "style": "accent"}]},
+    {"text": "最后只补真正缺口", "startMs": 10800, "endMs": 12500, "timestampMs": null, "confidence": null, "emphasis": [{"text": "真正缺口", "style": "strong"}]},
+    {"text": "记住三个关键动作", "startMs": 12500, "endMs": 14150, "timestampMs": null, "confidence": null, "emphasis": [{"text": "三个", "style": "large"}]},
+    {"text": "回忆、间隔、交错练习", "startMs": 14150, "endMs": 15800, "timestampMs": null, "confidence": null, "emphasis": [{"text": "间隔", "style": "accent"}]},
+    {"text": "把输入变成可调用能力", "startMs": 15800, "endMs": 17500, "timestampMs": null, "confidence": null, "emphasis": [{"text": "可调用", "style": "strong"}]},
+    {"text": "当天先做一次回忆", "startMs": 17500, "endMs": 19150, "timestampMs": null, "confidence": null, "emphasis": [{"text": "回忆", "style": "large"}]},
+    {"text": "隔一段时间再次提取", "startMs": 19150, "endMs": 20800, "timestampMs": null, "confidence": null, "emphasis": [{"text": "再次提取", "style": "accent"}]},
+    {"text": "混合相近问题做判断", "startMs": 20800, "endMs": 22400, "timestampMs": null, "confidence": null, "emphasis": [{"text": "做判断", "style": "strong"}]},
+    {"text": "让大脑学会选择方法", "startMs": 22400, "endMs": 24000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "选择方法", "style": "accent"}]},
+    {"text": "学习闭环只有三件事", "startMs": 24000, "endMs": 26000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "三件事", "style": "large"}]},
+    {"text": "回忆、核对、安排间隔", "startMs": 26000, "endMs": 28000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "核对", "style": "accent"}]},
+    {"text": "收藏后下次直接照做", "startMs": 28000, "endMs": 30000, "timestampMs": null, "confidence": null, "emphasis": [{"text": "直接照做", "style": "strong"}]}
   ]
 }

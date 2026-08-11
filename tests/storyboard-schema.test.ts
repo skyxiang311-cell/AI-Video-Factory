@@ -1,13 +1,13 @@
 import {describe, expect, it} from "vitest";
 import {ZodError} from "zod";
 import sampleJson from "../templates/knowledge/sample-storyboard.json";
-import {parseStoryboard} from "../src/storyboard/schema";
+import {parseVisualStoryboard} from "../src/storyboard/visual-schema";
 
-const cloneSample = () => structuredClone(parseStoryboard(sampleJson));
+const cloneSample = () => structuredClone(parseVisualStoryboard(sampleJson));
 
 const expectInvalidPath = (input: unknown, expectedPath: string): void => {
   try {
-    parseStoryboard(input);
+    parseVisualStoryboard(input);
   } catch (error) {
     expect(error).toBeInstanceOf(ZodError);
     const paths = (error as ZodError).issues.map((issue) => issue.path.join("."));
@@ -18,22 +18,24 @@ const expectInvalidPath = (input: unknown, expectedPath: string): void => {
   throw new Error(`Expected validation to fail at ${expectedPath}`);
 };
 
-describe("StoryboardSchema", () => {
-  it("accepts the fixed 24-second Knowledge sample", () => {
-    const storyboard = parseStoryboard(sampleJson);
+describe("VisualStoryboardSchema", () => {
+  it("accepts the 30-second sample with all five visual types", () => {
+    const storyboard = parseVisualStoryboard(sampleJson);
 
     expect(storyboard.format).toEqual({
       width: 1080,
       height: 1920,
       fps: 30,
-      durationMs: 24_000,
+      durationMs: 30_000,
     });
     expect(storyboard.scenes[0]).toMatchObject({
       startMs: 0,
       endMs: 3000,
       purpose: "hook",
     });
-    expect(storyboard.scenes.filter((scene) => scene.purpose === "knowledge")).toHaveLength(3);
+    expect(new Set(storyboard.scenes.map((scene) => scene.visualType))).toEqual(
+      new Set(["hook", "diagram", "stat", "comparison", "summary"]),
+    );
     expect(storyboard.scenes.at(-1)?.purpose).toBe("summary");
     expect(storyboard.captions.length).toBeGreaterThanOrEqual(8);
   });
@@ -59,7 +61,7 @@ describe("StoryboardSchema", () => {
 
   it("rejects captions beyond the composition duration", () => {
     const input = cloneSample();
-    input.captions.at(-1)!.endMs = 24_001;
+    input.captions.at(-1)!.endMs = 30_001;
     expectInvalidPath(input, `captions.${input.captions.length - 1}.endMs`);
   });
 
@@ -79,7 +81,7 @@ describe("StoryboardSchema", () => {
     const input = cloneSample();
     input.scenes[1]!.contentFlags = ["foreign-price"];
     input.scenes[1]!.voiceText += "，示例价格为 100 日元";
-    expect(() => parseStoryboard(input)).not.toThrow();
+    expect(() => parseVisualStoryboard(input)).not.toThrow();
   });
 
   it("rejects emphasis text absent from voice and on-screen copy", () => {

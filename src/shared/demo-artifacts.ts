@@ -1,10 +1,10 @@
-import type {Storyboard} from "../storyboard/schema";
+import type {VisualStoryboard} from "../storyboard/visual-schema";
 
 const DEMO_MODE = "fixed-local-demo" as const;
 const DEMO_WARNING =
   "此固定样例仅用于验证 Storyboard 到 MP4 的渲染链路，不代表已完成外部事实核验。";
 
-export const createDemoArtifacts = (storyboard: Storyboard) => {
+export const createDemoArtifacts = (storyboard: VisualStoryboard) => {
   const common = {
     schemaVersion: storyboard.schemaVersion,
     jobId: storyboard.jobId,
@@ -19,7 +19,10 @@ export const createDemoArtifacts = (storyboard: Storyboard) => {
       ...common,
       input: {
         kind: "text" as const,
-        title: storyboard.scenes[0]?.onScreenText[0] ?? storyboard.jobId,
+        title:
+          storyboard.scenes[0]?.visualType === "hook"
+            ? storyboard.scenes[0].visualData.headline
+            : storyboard.jobId,
         text: storyboard.scenes.map((scene) => scene.voiceText).join("\n"),
       },
       warning: DEMO_WARNING,

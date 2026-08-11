@@ -99,6 +99,8 @@ output/<job-id>/
 Storyboard JSON → Schema 校验 → Remotion → 1080×1920 H.264 MP4
 ```
 
+Storyboard V1.1 通过 `visualType` 和强类型 `visualData` 驱动 Hook、Diagram、Stat、Comparison、Summary 五类场景。品牌区域由根级 `branding` 配置控制，默认关闭；渲染层不写死文章内容或品牌名称。
+
 运行环境要求 Node.js 22.20.0 或兼容版本。首次安装和渲染可能下载 Remotion 使用的 Chromium：
 
 ```bash
@@ -110,8 +112,8 @@ npm run render:demo
 
 - `npm run preview` 启动 Remotion Studio；因为使用 `--no-open`，请打开终端输出的本地 URL。
 - `npm test` 运行 Storyboard Schema、时间轴、任务产物和真实 MP4 渲染冒烟测试。
-- `npm run render:demo` 渲染固定 24 秒、30fps 的 Demo，成片位于 `output/knowledge-demo/final.mp4`。
-- Demo 的八项中间产物均保存在 `output/knowledge-demo/`，可用于后续局部重跑。
+- `npm run render:demo` 渲染固定 30 秒、30fps 的视觉升级 Demo，成片位于 `output/knowledge-visual-demo/final.mp4`。
+- Demo 的八项中间产物均保存在 `output/knowledge-visual-demo/`，可用于后续局部重跑。
 
 本阶段未配置 OpenAI、Gemini、OCR、真实 TTS、素材搜索或自动发布 API。`voice.mp3` 是明确标记、且不混入成片的静音占位音轨，不能视为真实中文配音。
 

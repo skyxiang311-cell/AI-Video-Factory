@@ -1,19 +1,19 @@
 import type {CalculateMetadataFunction} from "remotion";
 import {Composition} from "remotion";
-import {KnowledgeVideo} from "../../../src/render/knowledge/KnowledgeVideo";
+import {VisualKnowledgeVideo} from "../../../src/render/knowledge/VisualKnowledgeVideo";
 import {sampleStoryboard} from "../../../src/storyboard/sample";
 import {
-  parseStoryboard,
-  StoryboardPropsSchema,
-  type Storyboard,
-} from "../../../src/storyboard/schema";
-import {buildTimeline} from "../../../src/storyboard/timeline";
+  parseVisualStoryboard,
+  VisualStoryboardPropsSchema,
+  type VisualStoryboard,
+} from "../../../src/storyboard/visual-schema";
+import {buildVisualTimeline} from "../../../src/storyboard/visual-timeline";
 
-export const calculateKnowledgeMetadata: CalculateMetadataFunction<Storyboard> = ({
+export const calculateKnowledgeMetadata: CalculateMetadataFunction<VisualStoryboard> = ({
   props,
 }) => {
-  const storyboard = parseStoryboard(props);
-  const timeline = buildTimeline(storyboard);
+  const storyboard = parseVisualStoryboard(props);
+  const timeline = buildVisualTimeline(storyboard);
 
   return {
     width: storyboard.format.width,
@@ -21,20 +21,20 @@ export const calculateKnowledgeMetadata: CalculateMetadataFunction<Storyboard> =
     fps: storyboard.format.fps,
     durationInFrames: timeline.durationInFrames,
     props: storyboard,
-    defaultOutName: "knowledge-demo",
+    defaultOutName: storyboard.jobId,
   };
 };
 
 export const RemotionRoot = () => (
   <Composition
     id="KnowledgeDemo"
-    component={KnowledgeVideo}
+    component={VisualKnowledgeVideo}
     width={1080}
     height={1920}
     fps={30}
-    durationInFrames={720}
+    durationInFrames={900}
     defaultProps={sampleStoryboard}
-    schema={StoryboardPropsSchema}
+    schema={VisualStoryboardPropsSchema}
     calculateMetadata={calculateKnowledgeMetadata}
   />
 );

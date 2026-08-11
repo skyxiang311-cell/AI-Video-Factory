@@ -12,7 +12,7 @@ import {
   VIDEO_HEIGHT,
   VIDEO_WIDTH,
 } from "../src/shared/video-constants";
-import {parseStoryboard} from "../src/storyboard/schema";
+import {parseVisualStoryboard} from "../src/storyboard/visual-schema";
 import sampleStoryboardJson from "../templates/knowledge/sample-storyboard.json";
 
 const runProcess = async (executable: string, args: string[]): Promise<void> =>
@@ -68,7 +68,7 @@ const assertCompositionMetadata = (composition: {
 
 const main = async (): Promise<void> => {
   const startedAt = Date.now();
-  const storyboard = parseStoryboard(sampleStoryboardJson);
+  const storyboard = parseVisualStoryboard(sampleStoryboardJson);
   const outputDirectory = resolve("output", storyboard.jobId);
   const voiceTemporaryPath = resolve(outputDirectory, "voice.tmp.mp3");
   const voicePath = resolve(outputDirectory, "voice.mp3");
