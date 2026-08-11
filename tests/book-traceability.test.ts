@@ -5,6 +5,7 @@ import {
   validateEvidenceRefs,
   validateSelectedAngleRefs,
 } from "../src/research/book/traceability";
+import {VideoAnglesSchema} from "../src/research/book/angle-schema";
 
 const bookSource = {
   pages: [
@@ -37,6 +38,23 @@ const chapterAnalysis = () => ({
   chapterId: "chapter-practice",
   claims: [{...claim}],
   evidence: [{...evidence}],
+});
+
+const videoAngle = (claimIds: string[]) => ({
+  angleId: "angle-focus",
+  title: "Focus creates better feedback loops.",
+  premise: "Use focused practice to improve feedback quality.",
+  eligible: true,
+  claimIds,
+  audienceRelevance: 90,
+  practicalValue: 90,
+  counterIntuitiveScore: 80,
+  evidenceStrength: 90,
+  narrativePotential: 80,
+  saveValue: 90,
+  originalInsight: 80,
+  titleIntegrityScore: 90,
+  overallScore: 85,
 });
 
 describe("book traceability validation", () => {
@@ -73,9 +91,9 @@ describe("book traceability validation", () => {
   });
 
   it("blocks an angle that references an unknown claim", () => {
-    const videoAngles = {
-      candidates: [{angleId: "angle-focus", claimIds: ["claim-missing"]}],
-    };
+    const videoAngles = VideoAnglesSchema.parse({
+      candidates: [videoAngle(["claim-missing"])],
+    });
 
     expect(validateAngleRefs(videoAngles, new Set(["claim-focused-practice"]))).toEqual([
       expect.objectContaining({
@@ -113,9 +131,9 @@ describe("book traceability validation", () => {
 
   it("returns no issues when all source, evidence, and angle references resolve", () => {
     const analysis = chapterAnalysis();
-    const videoAngles = {
-      candidates: [{angleId: "angle-focus", claimIds: ["claim-focused-practice"]}],
-    };
+    const videoAngles = VideoAnglesSchema.parse({
+      candidates: [videoAngle(["claim-focused-practice"])],
+    });
     const selectedAngle = {
       angleId: "angle-focus",
       mustInclude: {claims: ["claim-focused-practice"], evidence: ["evidence-practice-study"]},

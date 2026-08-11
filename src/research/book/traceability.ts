@@ -1,4 +1,5 @@
 import type {BookSourceRef, SourceRef} from "./common-schema";
+import type {VideoAngles} from "./angle-schema";
 
 export type BookValidationSeverity = "BLOCK" | "WARN" | "INFO";
 
@@ -39,13 +40,6 @@ type ChapterAnalysisLike = {
   claims: readonly ClaimLike[];
   evidence: readonly EvidenceLike[];
 };
-
-type VideoAngleLike = {
-  angleId: string;
-  claimIds?: readonly string[];
-};
-
-type VideoAnglesLike = {candidates: readonly VideoAngleLike[]} | readonly VideoAngleLike[];
 
 type SelectedAngleLike = {
   angleId: string;
@@ -158,15 +152,14 @@ export const validateEvidenceRefs = (
 };
 
 export const validateAngleRefs = (
-  videoAngles: VideoAnglesLike,
+  videoAngles: VideoAngles,
   knownClaimIds: ReadonlySet<string> | readonly string[],
 ): BookValidationIssue[] => {
   const claims = knownIds(knownClaimIds);
-  const candidates = "candidates" in videoAngles ? videoAngles.candidates : videoAngles;
   const issues: BookValidationIssue[] = [];
 
-  for (const angle of candidates) {
-    for (const claimId of angle.claimIds ?? []) {
+  for (const angle of videoAngles.candidates) {
+    for (const claimId of angle.claimIds) {
       if (!claims.has(claimId)) {
         issues.push(blockingIssue(
           "MISSING_ANGLE_CLAIM",

@@ -7,6 +7,7 @@ export const VideoAngleSchema = z.object({
   title: z.string().min(1),
   premise: z.string().min(1),
   eligible: z.boolean(),
+  claimIds: z.array(z.string().regex(/^claim-[a-z0-9-]+$/)).min(1),
   audienceRelevance: ScoreSchema,
   practicalValue: ScoreSchema,
   counterIntuitiveScore: ScoreSchema,

@@ -7,6 +7,7 @@ const validVideoAngle = () => ({
   title: "真正拉开差距的不是努力，而是反馈速度",
   premise: "把书中的反馈观点转化为一个可执行的练习框架。",
   eligible: true,
+  claimIds: ["claim-focused-practice"],
   audienceRelevance: 92,
   practicalValue: 90,
   counterIntuitiveScore: 76,
@@ -84,6 +85,14 @@ describe("book angle and unified analysis schemas", () => {
     const angles = VideoAnglesSchema.parse({candidates: [validVideoAngle()]});
 
     expect(angles.candidates[0]?.overallScore).toBe(88);
+    expect(angles.candidates[0]?.claimIds).toEqual(["claim-focused-practice"]);
+  });
+
+  it("rejects a video angle without at least one source claim id", () => {
+    const angle = validVideoAngle();
+    angle.claimIds = [];
+
+    expect(VideoAnglesSchema.safeParse({candidates: [angle]}).success).toBe(false);
   });
 
   it("rejects any video-angle score above one hundred", () => {
