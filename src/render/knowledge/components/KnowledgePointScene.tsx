@@ -24,11 +24,11 @@ export const KnowledgePointScene = ({
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           }),
-          translate: interpolate(frame, [0, 10], ["-60px 0", "0px 0"], {
+          transform: `translateX(${interpolate(frame, [0, 10], [-60, 0], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-          }),
+          })}px)`,
         }}
       >
         <div
@@ -63,11 +63,11 @@ export const KnowledgePointScene = ({
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           }),
-          translate: interpolate(frame, [8, 20], ["0 64px", "0 0px"], {
+          transform: `translateY(${interpolate(frame, [8, 20], [64, 0], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-          }),
+          })}px)`,
         }}
       >
         {headline}
