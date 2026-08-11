@@ -3,10 +3,9 @@ import {spawn} from "node:child_process";
 import {rename, unlink} from "node:fs/promises";
 
 type AssembleVoiceTrackInput = {
-  segmentPaths: string[];
+  segments: Array<{path: string; pauseAfterMs: number}>;
   outputPath: string;
   leadInMs: number;
-  pauseAfterMs: number;
   tailOutMs: number;
 };
 
@@ -26,13 +25,12 @@ const runFfmpeg = (args: string[]) =>
   });
 
 export const assembleVoiceTrack = async ({
-  segmentPaths,
+  segments,
   outputPath,
   leadInMs,
-  pauseAfterMs,
   tailOutMs,
 }: AssembleVoiceTrackInput): Promise<void> => {
-  if (segmentPaths.length === 0) {
+  if (segments.length === 0) {
     throw new Error("至少需要一个配音片段");
   }
   const temporaryPath = outputPath.replace(/\.mp3$/u, ".tmp.mp3");
@@ -46,11 +44,11 @@ export const assembleVoiceTrack = async ({
   if (leadInMs > 0) {
     addSilence("lead", leadInMs);
   }
-  segmentPaths.forEach((_, index) => {
+  segments.forEach((segment, index) => {
     filters.push(`[${index}:a]aresample=24000,aformat=sample_fmts=fltp:channel_layouts=mono[s${index}]`);
     labels.push(`[s${index}]`);
-    const isLast = index === segmentPaths.length - 1;
-    const silenceMs = isLast ? tailOutMs : pauseAfterMs;
+    const isLast = index === segments.length - 1;
+    const silenceMs = isLast ? tailOutMs : segment.pauseAfterMs;
     if (silenceMs > 0) {
       addSilence(isLast ? "tail" : `gap${index}`, silenceMs);
     }
@@ -58,7 +56,7 @@ export const assembleVoiceTrack = async ({
   filters.push(`${labels.join("")}concat=n=${labels.length}:v=0:a=1[outa]`);
   await runFfmpeg([
     "-y",
-    ...segmentPaths.flatMap((path) => ["-i", path]),
+    ...segments.flatMap((segment) => ["-i", segment.path]),
     "-filter_complex",
     filters.join(";"),
     "-map",

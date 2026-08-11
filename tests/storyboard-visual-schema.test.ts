@@ -1,4 +1,5 @@
 import {describe, expect, it} from "vitest";
+import sampleStoryboardJson from "../templates/knowledge/sample-storyboard.json";
 import {migrateStoryboardV1ToV1_1} from "../src/storyboard/migrations/v1-to-v1-1";
 import {parseStoryboard} from "../src/storyboard/schema";
 import {
@@ -110,5 +111,25 @@ describe("Storyboard V1.1 visual contract", () => {
     migrated.branding = {enabled: true, label: "", position: "top-left"};
 
     expect(VisualStoryboardSchema.safeParse(migrated).success).toBe(false);
+  });
+
+  it("upgrades a legacy V1.1 visual storyboard missing narration fields", () => {
+    const current = structuredClone(sampleStoryboardJson) as Record<string, unknown> & {
+      scenes: Array<Record<string, unknown>>;
+    };
+    delete current.narration;
+    current.scenes.forEach((scene) => delete scene.onScreenText);
+
+    const parsed = parseVisualStoryboard(current);
+
+    expect(parsed.narration.preset).toBe("natural");
+    expect(parsed.scenes.every((scene) => scene.onScreenText.length > 0)).toBe(true);
+  });
+
+  it("rejects onScreenText that is not represented by visualData", () => {
+    const current = structuredClone(sampleStoryboardJson);
+    current.scenes[0]!.onScreenText = ["画面里不存在的文案"];
+
+    expect(VisualStoryboardSchema.safeParse(current).success).toBe(false);
   });
 });

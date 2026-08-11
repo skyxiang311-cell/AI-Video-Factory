@@ -154,6 +154,7 @@ const VisualSceneBaseSchema = z.object({
   speechEndMs: z.number().int().positive().optional(),
   purpose: z.enum(["hook", "context", "knowledge", "summary"]),
   voiceText: z.string().min(1),
+  onScreenText: z.array(z.string().min(1).max(30)).min(1).max(6),
   visualIntent: z.string().min(1),
   assetRefs: z.array(z.string()),
   emphasis: z.array(z.string().min(1)),
@@ -176,6 +177,59 @@ export const BrandingSchema = z.discriminatedUnion("enabled", [
   }),
 ]);
 
+const PauseKindSchema = z.enum([
+  "short",
+  "sentence",
+  "knowledge-switch",
+  "important-conclusion",
+]);
+
+const NarrationSchema = z.object({
+  preset: z.enum(["natural", "energetic", "calm"]).default("natural"),
+  blocks: z.array(z.object({
+    id: z.string().regex(/^speech-[a-z0-9-]+$/),
+    sceneIds: z.array(z.string().regex(/^scene-[a-z0-9-]+$/)).min(1),
+    pauseAfter: PauseKindSchema,
+  })).min(1),
+});
+
+const deriveOnScreenText = (scene: Record<string, unknown>): string[] => {
+  const visualData = scene.visualData as Record<string, unknown> | undefined;
+  if (!visualData) return [String(scene.voiceText ?? "")].filter(Boolean);
+  const candidates: unknown[] = [visualData.headline, visualData.supporting, visualData.title];
+  if (Array.isArray(visualData.nodes)) {
+    candidates.push(...visualData.nodes.map((node) => (node as Record<string, unknown>).label));
+  }
+  if (Array.isArray(visualData.items)) {
+    candidates.push(...visualData.items.map((item) => (item as Record<string, unknown>).label));
+  }
+  for (const sideName of ["left", "right"] as const) {
+    const side = visualData[sideName] as Record<string, unknown> | undefined;
+    if (side) candidates.push(side.headline);
+  }
+  candidates.push(visualData.closing);
+  return candidates.filter((value): value is string => typeof value === "string" && value.length > 0).slice(0, 6);
+};
+
+const upgradeLegacyVisualStoryboard = (input: unknown): unknown => {
+  if (!input || typeof input !== "object") return input;
+  const value = input as Record<string, unknown>;
+  if (value.schemaVersion !== "1.1" || !Array.isArray(value.scenes)) return input;
+  const scenes = value.scenes.map((rawScene) => {
+    const scene = rawScene as Record<string, unknown>;
+    return scene.onScreenText ? scene : {...scene, onScreenText: deriveOnScreenText(scene)};
+  });
+  const narration = value.narration ?? {
+    preset: "natural",
+    blocks: scenes.map((scene) => ({
+      id: `speech-${String(scene.id).replace(/^scene-/u, "")}`,
+      sceneIds: [scene.id],
+      pauseAfter: scene.purpose === "summary" ? "important-conclusion" : "sentence",
+    })),
+  };
+  return {...value, scenes, narration};
+};
+
 export const VisualStoryboardPropsSchema = z.object({
   schemaVersion: z.union([z.literal("1.1"), z.literal("1.2")]),
   jobId: z.string().regex(/^[a-z0-9][a-z0-9-]{2,63}$/),
@@ -187,6 +241,7 @@ export const VisualStoryboardPropsSchema = z.object({
   }),
   template: z.literal("knowledge"),
   branding: BrandingSchema,
+  narration: NarrationSchema,
   audio: z.discriminatedUnion("enabled", [
     z.object({enabled: z.literal(false)}),
     z.object({
@@ -196,6 +251,9 @@ export const VisualStoryboardPropsSchema = z.object({
       provider: z.string().min(1),
       voice: z.string().min(1),
       rate: z.string().min(1),
+      pitch: z.string().min(1).default("+0Hz"),
+      volume: z.string().min(1).default("+0%"),
+      preset: z.enum(["natural", "energetic", "calm"]).default("natural"),
       fingerprint: z.string().min(1),
     }),
   ]).default({enabled: false}),
@@ -266,6 +324,15 @@ const validateVisualStoryboard = (
         }
       });
     }
+    if (scene.voiceText.trim() === scene.onScreenText.join("").trim()) {
+      addIssue(context, ["scenes", index, "voiceText"], "口播不能直接朗读屏幕文案");
+    }
+    const serializedVisualData = JSON.stringify(scene.visualData);
+    scene.onScreenText.forEach((text, textIndex) => {
+      if (!serializedVisualData.includes(text)) {
+        addIssue(context, ["scenes", index, "onScreenText", textIndex], "屏幕文案必须实际出现在 visualData 中");
+      }
+    });
     const searchableText = `${scene.voiceText}\n${JSON.stringify(scene.visualData)}`;
     scene.emphasis.forEach((value, emphasisIndex) => {
       if (!searchableText.includes(value)) {
@@ -276,6 +343,14 @@ const validateVisualStoryboard = (
       addIssue(context, ["scenes", index, "contentFlags"], "国外价格内容必须明确货币单位");
     }
   });
+  const narratedSceneIds = storyboard.narration.blocks.flatMap((block) => block.sceneIds);
+  if (
+    narratedSceneIds.length !== storyboard.scenes.length ||
+    new Set(narratedSceneIds).size !== storyboard.scenes.length ||
+    storyboard.scenes.some((scene, index) => narratedSceneIds[index] !== scene.id)
+  ) {
+    addIssue(context, ["narration", "blocks"], "Narration 必须按场景顺序且不重复地覆盖全部场景");
+  }
   if (storyboard.scenes.at(-1)?.endMs !== storyboard.format.durationMs) {
     addIssue(context, ["scenes", storyboard.scenes.length - 1, "endMs"], "最后一幕结束时间必须等于视频总时长");
   }
@@ -314,8 +389,9 @@ const validateVisualStoryboard = (
   });
 };
 
-export const VisualStoryboardSchema = VisualStoryboardPropsSchema.superRefine(
-  validateVisualStoryboard,
+export const VisualStoryboardSchema = z.preprocess(
+  upgradeLegacyVisualStoryboard,
+  VisualStoryboardPropsSchema.superRefine(validateVisualStoryboard),
 );
 
 export type VisualStoryboard = z.infer<typeof VisualStoryboardSchema>;

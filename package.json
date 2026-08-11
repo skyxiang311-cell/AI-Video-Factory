@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "voice:demo": "tsx scripts/voice-demo.ts",
+    "voice:compare": "tsx scripts/voice-compare.ts",
     "render:demo": "tsx scripts/render-demo.ts"
   },
   "dependencies": {

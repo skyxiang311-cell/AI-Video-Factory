@@ -303,3 +303,20 @@ H.264 + AAC MP4
 生成后的 `storyboard.json` 使用 V1.2，`format.durationMs` 与 `audio.durationMs` 必须一致；最终帧数向上取整，避免截断最后一个音节。`voice.json` 记录供应商、声音、语速、文本指纹、分幕时长、词边界、文件大小和非静音检查结果。
 
 3.1 不包含 AI 内容生成、PDF、OCR、外部素材搜索或自动发布。
+
+## 17. 第三阶段 3.1.1：中文口播自然化
+
+Storyboard 的屏幕文案与口播内容必须分离：`onScreenText` 负责手机端快速阅读和视觉冲击，`voiceText` 负责自然中文口语，渲染组件不得直接朗读屏幕标题或卡片文案。固定 Demo 的口语表达由人工确认；确定性的 narration normalization 只处理列表符号、书面连接词、标点和安全断句，不创造事实，并校验数字与货币单位不丢失。
+
+配音不再按每个场景独立生成，而由 `narration.blocks` 把相邻场景组成连续语义段。Edge TTS 返回的首尾边界用于裁掉冗余静音，同时保留安全余量；语义段内部保持原始连续韵律，段间按照以下策略插入可重复的差异化停顿：
+
+- 普通短句衔接：180ms。
+- 普通句尾：320ms。
+- 知识点切换：500ms。
+- 重要结论：620ms。
+
+Edge TTS 参数由 `VoiceProvider` adapter 和 preset 管理。默认 `natural` 使用 `zh-CN-XiaoxiaoNeural`、`+7%` 语速、`+0Hz` 音调和 `+0%` 音量；另提供 `energetic` 与 `calm` 供 `npm run voice:compare` 人工试听。最终人声可通过 FFmpeg 执行轻量高通、压缩与响度标准化，处理过程不得改变音频时间长度，也不能用于掩盖不自然的 TTS 文案或停顿。
+
+每个语义段的 WordBoundary 会重新映射回所属场景。字幕和场景时间继续由处理后的真实 `voice.mp3` 驱动，禁止恢复固定时间模拟。`voice.json` 需要记录 preset、原始/裁剪时长、裁剪量、停顿类型、边界间隔统计和后处理配置，便于复现与人工验收。
+
+3.1.1 仍不包含 PDF、OCR、LLM 内容生成、付费 TTS、素材搜索或自动发布。

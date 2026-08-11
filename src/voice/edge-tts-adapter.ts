@@ -4,26 +4,17 @@ import {readFile, stat} from "node:fs/promises";
 import {resolve} from "node:path";
 import {inspectMediaFile} from "../shared/media-inspection";
 import type {VoiceBoundary} from "../subtitles/voice-caption-alignment";
+import type {
+  VoiceProvider,
+  VoiceSynthesisRequest,
+  VoiceSynthesisResult,
+} from "./voice-provider";
 
 export type EdgeVoiceSettings = {
   voice: string;
   rate: string;
   pitch: string;
   volume: string;
-};
-
-export type TtsSegmentRequest = {
-  sceneId: string;
-  text: string;
-  audioPath: string;
-};
-
-export type TtsSegmentResult = {
-  sceneId: string;
-  text: string;
-  audioPath: string;
-  durationMs: number;
-  boundaries: VoiceBoundary[];
 };
 
 type RawMetadata = {
@@ -60,7 +51,7 @@ const runBridge = (
     child.stdin.end(`${JSON.stringify(request)}\n`);
   });
 
-export class EdgeTtsAdapter {
+export class EdgeTtsAdapter implements VoiceProvider {
   readonly provider = "edge-tts";
 
   constructor(
@@ -69,7 +60,7 @@ export class EdgeTtsAdapter {
     private readonly bridgePath = resolve("scripts/edge-tts-bridge.py"),
   ) {}
 
-  async synthesize(request: TtsSegmentRequest): Promise<TtsSegmentResult> {
+  async synthesize(request: VoiceSynthesisRequest): Promise<VoiceSynthesisResult> {
     const metadataPath = `${request.audioPath}.metadata.json`;
     let lastError: unknown;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -86,7 +77,7 @@ export class EdgeTtsAdapter {
           readFile(metadataPath, "utf8"),
         ]);
         if (fileStats.size < 1024 || media.audioTracks.length !== 1 || media.durationMs <= 0) {
-          throw new Error(`Edge TTS returned invalid audio for ${request.sceneId}`);
+          throw new Error(`Edge TTS returned invalid audio for ${request.segmentId}`);
         }
         const metadata = JSON.parse(metadataText) as RawMetadata;
         return {

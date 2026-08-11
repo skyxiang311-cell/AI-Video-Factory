@@ -2,7 +2,7 @@
 
 AI Video Factory 是一个面向中国抖音、小红书知识型短视频的自动化生产项目。它将 PDF、文章、截图或文字资料转化为适合中国用户观看和收藏的原创口播内容，再通过结构化分镜驱动配音、字幕、动画与成片渲染。
 
-当前仓库已完成第三阶段 3.1：Knowledge Demo 可使用 Edge TTS 生成真实中文配音，并根据实际音频时长和词边界重新计算场景与字幕时间，再由 Remotion 渲染为带音轨的 MP4。当前仍未接入 AI 内容生成、PDF、OCR 或素材搜索，也不包含任何真实 API Key。
+当前仓库已完成第三阶段 3.1.1：Knowledge Demo 可使用 Edge TTS 生成经过中文口播自然化处理的真实配音，并根据实际音频时长和词边界重新计算场景与字幕时间，再由 Remotion 渲染为带音轨的 MP4。当前仍未接入 AI 内容生成、PDF、OCR 或素材搜索，也不包含任何真实 API Key。
 
 ## 项目目标
 
@@ -96,28 +96,30 @@ output/<job-id>/
 当前 Demo 使用仓库内固定的原创中文 `sample-storyboard.json`，用于证明以下核心路径稳定：
 
 ```text
-Storyboard voiceText → Edge TTS → 真实音频时长 / 词边界 → 动态字幕与场景时间轴 → Remotion → 1080×1920 H.264 MP4
+Storyboard onScreenText / voiceText → 口播规范化 → Edge TTS 语义段配音 → 静音裁剪与轻量后处理 → 真实音频时长 / 词边界 → 动态字幕与场景时间轴 → Remotion → 1080×1920 H.264 MP4
 ```
 
-Storyboard 通过 `visualType` 和强类型 `visualData` 驱动 Hook、Diagram、Stat、Comparison、Summary 五类场景。渲染后的 V1.2 Storyboard 额外保存实际场景口播范围、字幕 token 时间和音频元数据。品牌区域由根级 `branding` 配置控制，默认关闭；渲染层不写死文章内容、口播或品牌名称。
+Storyboard 通过 `visualType` 和强类型 `visualData` 驱动 Hook、Diagram、Stat、Comparison、Summary 五类场景。`onScreenText` 是 `visualData` 中实际显示短文案的可校验清单，`voiceText` 保存自然中文口播，两者由 Schema 明确分离；组件继续读取适合各布局的结构化 `visualData`。`narration.blocks` 将相邻场景组织为连续语义段，并声明差异化停顿。渲染后的 V1.2 Storyboard 额外保存实际场景口播范围、字幕 token 时间和音频元数据。品牌区域由根级 `branding` 配置控制，默认关闭；渲染层不写死文章内容、口播或品牌名称。
 
 运行环境要求 Node.js 22.20.0 或兼容版本、Python 3.9 或更高版本。`voice:demo` 会在首次运行时创建未提交的 `.venv` 并安装锁定版本 `edge-tts==7.2.8`；生成真实配音需要联网。首次渲染可能下载 Remotion 使用的 Chromium：
 
 ```bash
 npm install
 npm run preview
+npm run voice:compare
 npm run voice:demo
 npm test
 npm run render:demo
 ```
 
 - `npm run preview` 启动 Remotion Studio；因为使用 `--no-open`，请打开终端输出的本地 URL。
+- `npm run voice:compare` 使用同一段约 15 秒中文口播生成 `natural`、`energetic`、`calm` 三套试听 MP3，输出到 `output/voice-comparison/`。
 - `npm run voice:demo` 生成真实中文 `voice.mp3`、Edge 词边界字幕和音频驱动的 Storyboard，并检查配音不是静音。
 - `npm test` 运行 Storyboard Schema、词边界、字幕回退、动态时间轴、媒体元数据和带音频 MP4 冒烟测试。
 - `npm run render:demo` 复用有效配音并渲染 30fps 成片，时长由真实语音决定，不再固定为 30 秒。
 - Demo 产物保存在 `output/knowledge-voice-demo/`，其中额外包含 `voice.json` 和分幕音频，均不会提交 Git。
 
-本阶段只接入无需 API Key 的 Edge TTS，不包含 OpenAI、Gemini、PDF、OCR、素材搜索或自动发布。Edge TTS 由 adapter 封装，未来可以替换为其他语音服务而不修改 Storyboard 与 Remotion 组件。
+默认配音 preset 为 `natural`（小晓声音、`+7%` 语速）；另提供 `energetic` 和 `calm`。配音按语义段连续生成，裁掉供应商产生的冗余首尾静音，再按短句、句尾、知识点切换和重要结论应用不同停顿。FFmpeg 只执行轻量高通、压缩和响度标准化，不改变时间轴。本阶段只接入无需 API Key 的 Edge TTS，不包含 OpenAI、Gemini、PDF、OCR、素材搜索或自动发布。Edge TTS 实现统一的 `VoiceProvider` adapter，未来可以替换其他语音服务而不修改 Storyboard 与 Remotion 组件。
 
 ## 未来使用方式
 

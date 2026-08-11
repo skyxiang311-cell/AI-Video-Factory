@@ -8,6 +8,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
     endMs: scene.endMs,
     purpose: scene.purpose,
     voiceText: scene.voiceText,
+    onScreenText: scene.onScreenText,
     visualIntent: scene.visualIntent,
     assetRefs: scene.assetRefs,
     emphasis: scene.emphasis,
@@ -91,6 +92,14 @@ export const migrateStoryboardV1ToV1_1 = (
   format: storyboard.format,
   template: storyboard.template,
   branding: {enabled: false},
+  narration: {
+    preset: "natural",
+    blocks: storyboard.scenes.map((scene) => ({
+      id: `speech-${scene.id.replace(/^scene-/u, "")}`,
+      sceneIds: [scene.id],
+      pauseAfter: scene.purpose === "summary" ? "important-conclusion" as const : "sentence" as const,
+    })),
+  },
   audio: {enabled: false},
   scenes: storyboard.scenes.map(migrateScene),
   captions: storyboard.captions.map((caption) => ({
