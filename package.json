@@ -14,7 +14,8 @@
     "voice:demo": "tsx scripts/voice-demo.ts",
     "voice:compare": "tsx scripts/voice-compare.ts",
     "render:demo": "tsx scripts/render-demo.ts",
-    "book:validate-demo": "tsx scripts/book-validate-demo.ts"
+    "book:validate-demo": "tsx scripts/book-validate-demo.ts",
+    "book:ingest": "tsx scripts/book-ingest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
@@ -22,6 +23,7 @@
     "@remotion/media": "4.0.507",
     "@remotion/transitions": "4.0.507",
     "mediabunny": "1.50.8",
+    "pdfjs-dist": "6.2.108",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "remotion": "4.0.507",
