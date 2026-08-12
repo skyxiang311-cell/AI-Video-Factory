@@ -9,6 +9,7 @@ const assertSafePathSegment = (value: string, label: string): void => {
 export interface BookArtifactPaths {
   directory: string;
   source: string;
+  map: string;
   chaptersDirectory: string;
   visualsDirectory: string;
   synthesis: string;
@@ -28,6 +29,7 @@ export const getBookArtifactPaths = (jobId: string): BookArtifactPaths => {
   return {
     directory,
     source: resolve(directory, "book-source.json"),
+    map: resolve(directory, "book-map.json"),
     chaptersDirectory,
     visualsDirectory: resolve(directory, "visuals"),
     synthesis: resolve(directory, "book-synthesis.json"),

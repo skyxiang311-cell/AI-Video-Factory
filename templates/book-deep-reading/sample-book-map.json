@@ -1,0 +1,163 @@
+{
+  "artifact": {
+    "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "promptVersion": "book-map-round-1-v1",
+    "modelProfile": "synthetic-provider:synthetic-book-map-v1",
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-08-12T00:00:00.000Z"
+  },
+  "provider": {
+    "name": "synthetic-provider",
+    "model": "synthetic-book-map-v1"
+  },
+  "analysisLanguage": "zh-CN",
+  "coreProblem": {
+    "summary": "本书探讨如何把复盘与及时反馈转化为下一次行动前可验证的学习改动。",
+    "sourceRefs": [
+      {
+        "type": "book",
+        "chapterId": "chapter-micro-retrospective",
+        "page": 1,
+        "blockId": "p1-bmicro-retrospective"
+      }
+    ]
+  },
+  "candidateCoreTheses": [
+    {
+      "statement": "候选命题：短周期复盘与及时反馈可能比低频总结更容易保留学习线索。",
+      "confidence": 0.78,
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        },
+        {
+          "type": "book",
+          "chapterId": "chapter-feedback-window",
+          "page": 2,
+          "blockId": "p2-bfeedback-window"
+        }
+      ]
+    }
+  ],
+  "structureOverview": {
+    "summary": "全书先定义微型复盘，再讨论反馈抵达的时间条件。",
+    "sourceRefs": [
+      {
+        "type": "book",
+        "chapterId": "chapter-micro-retrospective",
+        "page": 1,
+        "blockId": "p1-bmicro-retrospective"
+      },
+      {
+        "type": "book",
+        "chapterId": "chapter-feedback-window",
+        "page": 2,
+        "blockId": "p2-bfeedback-window"
+      }
+    ],
+    "parts": [
+      {
+        "title": "从复盘动作到反馈时间窗",
+        "chapterIds": [
+          "chapter-micro-retrospective",
+          "chapter-feedback-window"
+        ],
+        "function": "建立行动复盘与及时反馈之间的结构关系。",
+        "sourceRefs": [
+          {
+            "type": "book",
+            "chapterId": "chapter-micro-retrospective",
+            "page": 1,
+            "blockId": "p1-bmicro-retrospective"
+          }
+        ]
+      }
+    ]
+  },
+  "chapters": [
+    {
+      "chapterId": "chapter-micro-retrospective",
+      "title": "把复盘缩短到下一次行动之前",
+      "startPage": 1,
+      "endPage": 1,
+      "analysisStatus": "analyzed",
+      "role": "建立全书的复盘定义与行动尺度。",
+      "summary": "本章把复盘界定为面向下一次行动的可验证改动。",
+      "importance": 92,
+      "deepReadPriority": "high",
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        }
+      ]
+    },
+    {
+      "chapterId": "chapter-feedback-window",
+      "title": "反馈抵达的时间窗",
+      "startPage": 2,
+      "endPage": 2,
+      "analysisStatus": "analyzed",
+      "role": "补充反馈时机这一条件变量。",
+      "summary": "本章用明确标注为合成的数据讨论反馈时间窗。",
+      "importance": 74,
+      "deepReadPriority": "medium",
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-feedback-window",
+          "page": 2,
+          "blockId": "p2-bfeedback-window"
+        }
+      ]
+    }
+  ],
+  "recurringConcepts": [
+    {
+      "concept": "行动反馈闭环",
+      "chapterIds": [
+        "chapter-micro-retrospective",
+        "chapter-feedback-window"
+      ],
+      "summary": "复盘产生改动，反馈用于验证改动。",
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        },
+        {
+          "type": "book",
+          "chapterId": "chapter-feedback-window",
+          "page": 2,
+          "blockId": "p2-bfeedback-window"
+        }
+      ]
+    }
+  ],
+  "phase3BTargets": [
+    {
+      "chapterId": "chapter-micro-retrospective",
+      "priority": 92,
+      "reason": "该章定义核心方法，值得下一轮核对其命题、论证与适用范围。",
+      "sourceRefs": [
+        {
+          "type": "book",
+          "chapterId": "chapter-micro-retrospective",
+          "page": 1,
+          "blockId": "p1-bmicro-retrospective"
+        }
+      ]
+    }
+  ],
+  "excludedLowConfidencePages": [],
+  "warnings": [
+    "这是完全合成的测试分析，不对应真实出版物或研究。"
+  ]
+}

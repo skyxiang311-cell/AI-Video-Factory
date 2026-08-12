@@ -47,6 +47,7 @@ describe("book artifact storage", () => {
 
     expect(paths.directory).toBe(resolve("output/book-demo/book"));
     expect(paths.source).toBe(resolve("output/book-demo/book/book-source.json"));
+    expect(paths.map).toBe(resolve("output/book-demo/book/book-map.json"));
     expect(paths.visualsDirectory).toBe(resolve("output/book-demo/book/visuals"));
     expect(paths.chapter("chapter-001")).toBe(
       resolve("output/book-demo/book/chapters/chapter-001.json"),

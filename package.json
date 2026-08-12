@@ -15,7 +15,8 @@
     "voice:compare": "tsx scripts/voice-compare.ts",
     "render:demo": "tsx scripts/render-demo.ts",
     "book:validate-demo": "tsx scripts/book-validate-demo.ts",
-    "book:ingest": "tsx scripts/book-ingest.ts"
+    "book:ingest": "tsx scripts/book-ingest.ts",
+    "book:map": "tsx scripts/book-map.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
