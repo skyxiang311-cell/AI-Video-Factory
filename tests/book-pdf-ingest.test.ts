@@ -43,6 +43,9 @@ describe("digital PDF book ingest", () => {
     expect(blocks.every((block) => block.blockId.startsWith(`p${block.page}-`))).toBe(true);
     expect(blocks.every((block) => block.confidence >= 0.99)).toBe(true);
     expect(blocks.every((block) => block.translation === undefined)).toBe(true);
+    expect(source.extractionQuality.warnings.every((warning) => (
+      !warning.includes("local OCR")
+    ))).toBe(true);
 
     const chapters = new Map(source.structure.chapters.map((chapter) => [chapter.chapterId, chapter]));
     expect(source.structure.chapters).toEqual([
@@ -64,10 +67,16 @@ describe("digital PDF book ingest", () => {
     expect(source.artifact.inputHash).toBe(expected);
   });
 
-  it("rejects a PDF without a usable electronic text layer instead of invoking OCR", async () => {
-    await expect(ingestDigitalPdf(textlessFixturePath)).rejects.toThrow(
-      "Phase 2A supports digital PDFs with a usable text layer only; OCR is not enabled",
-    );
+  it("uses OCR fallback without inventing content for a textless PDF", async () => {
+    const source = await ingestDigitalPdf(textlessFixturePath);
+
+    expect(source.document.pdfKind).toBe("scanned");
+    expect(source.pages.flatMap((page) => page.contentBlocks)).toEqual([]);
+    expect(source.extractionQuality.lowConfidencePages).toContainEqual({
+      page: 1,
+      confidence: 0,
+      reason: expect.stringContaining("local OCR"),
+    });
   });
 
   it("uses a warning-backed fallback container when no chapter boundary is reliable", async () => {

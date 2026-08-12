@@ -7,14 +7,17 @@ import {
   type PDFDocumentProxy,
 } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type {TextItem} from "pdfjs-dist/types/src/display/api.d.ts";
+import {createLocalOcrEngine, type LocalOcrEngine, type OcrLine} from "./local-ocr";
+import {renderPdfPageForOcr, type RenderedPdfPage} from "./pdf-page-render";
 import {BookSourceSchema, type BookSource} from "./source-schema";
 
 type DetectedLanguage = "zh-CN" | "ja" | "en" | "und";
 
-interface ExtractedLine {
+export interface ExtractedLine {
   page: number;
   text: string;
   bbox: [number, number, number, number];
+  confidence?: number;
 }
 
 interface ChapterBoundary {
@@ -41,6 +44,16 @@ const isTextItem = (item: unknown): item is TextItem => (
 );
 
 const normalizeExtractedText = (text: string): string => text.replace(/\s+/gu, " ").trim();
+
+export const isReliableNativeText = (lines: ExtractedLine[]): boolean => {
+  const text = lines.map((line) => line.text).join("");
+  const characters = Array.from(text);
+  const meaningfulCharacters = text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+  const invalidCharacters = text.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ufffd]/gu)?.length ?? 0;
+
+  return meaningfulCharacters >= 4
+    && invalidCharacters / Math.max(1, characters.length) <= 0.1;
+};
 
 export const detectBookTextLanguage = (text: string): DetectedLanguage => {
   if (/[\u3040-\u30ff]/u.test(text)) return "ja";
@@ -108,7 +121,30 @@ const extractPageLines = async (
       roundCoordinate(line.x2 - line.x1),
       roundCoordinate(line.y2 - line.y1),
     ],
+    confidence: 0.99,
   }));
+};
+
+const mapOcrLineToPdf = (
+  line: OcrLine,
+  pageNumber: number,
+  rendered: RenderedPdfPage,
+): ExtractedLine => {
+  const [x, y, width, height] = line.bbox;
+  const xScale = rendered.pdfWidth / rendered.width;
+  const yScale = rendered.pdfHeight / rendered.height;
+
+  return {
+    page: pageNumber,
+    text: normalizeExtractedText(line.text),
+    confidence: line.confidence,
+    bbox: [
+      roundCoordinate(x * xScale),
+      roundCoordinate(rendered.pdfHeight - ((y + height) * yScale)),
+      roundCoordinate(width * xScale),
+      roundCoordinate(height * yScale),
+    ],
+  };
 };
 
 const resolveOutlinePage = async (
@@ -176,24 +212,69 @@ export const ingestDigitalPdf = async (
     standardFontDataUrl: STANDARD_FONT_DATA_URL,
     useWorkerFetch: false,
   });
+  let ocrEngine: LocalOcrEngine | undefined;
 
   try {
     const document = await loadingTask.promise;
     const pageLines: ExtractedLine[][] = [];
+    const pageConfidences: number[] = [];
+    const ocrPages = new Set<number>();
+    const lowConfidencePages: Array<{
+      page: number;
+      confidence: number;
+      reason: string;
+    }> = [];
+    const warnings: string[] = [];
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      pageLines.push(await extractPageLines(document, pageNumber));
+      const nativeLines = await extractPageLines(document, pageNumber);
+      if (isReliableNativeText(nativeLines)) {
+        pageLines.push(nativeLines);
+        pageConfidences.push(0.99);
+        continue;
+      }
+
+      ocrPages.add(pageNumber);
+      ocrEngine ??= await createLocalOcrEngine();
+      const page = await document.getPage(pageNumber);
+      const rendered = await renderPdfPageForOcr(page);
+      const recognizedLines = await ocrEngine.recognize(rendered.png);
+      const acceptedLines = recognizedLines.map((line) => (
+        mapOcrLineToPdf(line, pageNumber, rendered)
+      ));
+      const retainedLines = acceptedLines.length > 0
+        ? acceptedLines
+        : nativeLines.map((line) => ({...line, confidence: 0.49}));
+      const pageConfidence = acceptedLines.length === 0
+        ? 0
+        : acceptedLines.reduce((total, line) => total + (line.confidence ?? 0), 0)
+          / acceptedLines.length;
+
+      pageLines.push(retainedLines);
+      pageConfidences.push(pageConfidence);
+      warnings.push(`PDF page ${pageNumber} used local OCR fallback`);
+      if (pageConfidence < 0.85) {
+        lowConfidencePages.push({
+          page: pageNumber,
+          confidence: pageConfidence,
+          reason: "local OCR page confidence is below the 0.85 reliability threshold",
+        });
+        warnings.push(
+          `PDF page ${pageNumber} local OCR confidence ${pageConfidence.toFixed(3)} is below 0.85`,
+        );
+      }
+      if (acceptedLines.length === 0) {
+        warnings.push(
+          `PDF page ${pageNumber} local OCR found no readable text; no content was invented`,
+        );
+      }
     }
 
     const allLines = pageLines.flat();
-    if (allLines.length === 0) {
-      throw new Error("Phase 2A supports digital PDFs with a usable text layer only; OCR is not enabled");
-    }
     const {info} = await document.getMetadata();
     const metadata = toMetadataRecord(info);
     const fallbackTitle = basename(absolutePath, extname(absolutePath));
     const title = metadataString(metadata, "Title") ?? fallbackTitle;
     const author = metadataString(metadata, "Author");
-    const warnings: string[] = [];
     if (!author) warnings.push("PDF author metadata was unavailable; using Unknown");
 
     const detectedLanguages = Array.from(new Set(
@@ -224,7 +305,6 @@ export const ingestDigitalPdf = async (
 
     const pages = pageLines.map((lines, pageIndex) => {
       const pageNumber = pageIndex + 1;
-      if (lines.length === 0) warnings.push(`PDF page ${pageNumber} contains no extractable electronic text`);
       const chapter = chapters.find((candidate) => (
         pageNumber >= candidate.startPage && pageNumber <= candidate.endPage
       ));
@@ -246,7 +326,7 @@ export const ingestDigitalPdf = async (
             ? dominantLanguage
             : detectBookTextLanguage(line.text),
           bbox: line.bbox,
-          confidence: 0.99,
+          confidence: line.confidence ?? 0.99,
         })),
         visualElements: [],
       };
@@ -257,11 +337,23 @@ export const ingestDigitalPdf = async (
       warnings.push(`Table-of-contents marker detected on page ${tocPage}; entries were not used without reliable destinations`);
     }
 
+    const pdfKind = ocrPages.size === 0
+      ? "digital" as const
+      : ocrPages.size === document.numPages
+        ? "scanned" as const
+        : "mixed" as const;
+    const overallConfidence = pageConfidences.reduce((total, value) => total + value, 0)
+      / pageConfidences.length;
+
     return BookSourceSchema.parse({
       artifact: {
         inputHash: sha256,
-        promptVersion: "book-source-digital-pdf-v1",
-        modelProfile: "deterministic-pdfjs",
+        promptVersion: pdfKind === "digital"
+          ? "book-source-digital-pdf-v1"
+          : "book-source-local-ocr-v1",
+        modelProfile: pdfKind === "digital"
+          ? "deterministic-pdfjs"
+          : "deterministic-pdfjs-local-ocr",
         schemaVersion: "1.0.0",
         createdAt: options.createdAt ?? new Date().toISOString(),
       },
@@ -272,7 +364,7 @@ export const ingestDigitalPdf = async (
         pageCount: document.numPages,
       },
       document: {
-        pdfKind: "digital",
+        pdfKind,
         sourcePath: absolutePath,
         sha256,
         detectedLanguages: detectedLanguages.length > 0 ? detectedLanguages : ["und"],
@@ -287,12 +379,15 @@ export const ingestDigitalPdf = async (
       },
       pages,
       extractionQuality: {
-        overallConfidence: 0.99,
-        lowConfidencePages: [],
+        overallConfidence,
+        lowConfidencePages,
         warnings,
       },
     });
   } finally {
-    await loadingTask.destroy();
+    await Promise.all([
+      ocrEngine?.terminate() ?? Promise.resolve(),
+      loadingTask.destroy(),
+    ]);
   }
 };

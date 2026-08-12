@@ -10,6 +10,7 @@ import {
 import {BookSourceSchema} from "../src/research/book/source-schema";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/digital-book.pdf", import.meta.url));
+const scannedFixturePath = fileURLToPath(new URL("./fixtures/scanned-book.pdf", import.meta.url));
 const originalWorkingDirectory = process.cwd();
 let temporaryDirectory: string;
 
@@ -49,6 +50,34 @@ describe("book ingest CLI", () => {
       blockCount: 4,
     });
   });
+
+  it("persists a Schema-valid scanned PDF source after local OCR", async () => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+
+    const exitCode = await runBookIngestCli({
+      argv: [scannedFixturePath],
+      stdout: (message) => stdout.push(message),
+      stderr: (message) => stderr.push(message),
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toEqual([]);
+    const outputPath = resolve("output/scanned-book/book/book-source.json");
+    const persisted = BookSourceSchema.parse(JSON.parse(await readFile(outputPath, "utf8")));
+    const summary = JSON.parse(stdout.join("\n")) as Record<string, unknown>;
+    const blockCount = persisted.pages.flatMap((page) => page.contentBlocks).length;
+
+    expect(persisted.document.pdfKind).toBe("scanned");
+    expect(persisted.pages.map((page) => page.page)).toEqual([1, 2]);
+    expect(persisted.pages[1]?.contentBlocks).toEqual([]);
+    expect(summary).toEqual({
+      jobId: "scanned-book",
+      outputPath,
+      pageCount: 2,
+      blockCount,
+    });
+  }, 60_000);
 
   it.each([
     {argv: [], error: "Usage: npm run book:ingest -- <pdf-path>"},
