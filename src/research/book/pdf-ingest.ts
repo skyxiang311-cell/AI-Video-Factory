@@ -30,9 +30,15 @@ interface ChapterBoundary {
   startPage: number;
 }
 
-const CHAPTER_HEADING = /^(?:chapter\s+(?:\d+|[ivxlcdm]+)\b|第[一二三四五六七八九十百千万零〇0-9]+章\b)/iu;
+export interface ChineseChapterBoundary extends ChapterBoundary {
+  chapterNumber: number;
+}
+
+const CHINESE_CHAPTER_PREFIX = /^(第([一二三四五六七八九十百千万零〇0-9]+)章)(.*)$/u;
+const CHAPTER_HEADING = /^(?:chapter\s+(?:\d+|[ivxlcdm]+)\b|第[一二三四五六七八九十百千万零〇0-9]+章)/iu;
 const LIST_PREFIX = /^(?:[-*•]|\d+[.)])\s+/u;
 const TOC_MARKER = /^(?:contents|table of contents|目录|目次)$/iu;
+const TOC_LEADER = /(?:\.{2,}|…{2,}|·{2,})/u;
 const STANDARD_FONT_DATA_URL = fileURLToPath(
   new URL("../../../node_modules/pdfjs-dist/standard_fonts/", import.meta.url),
 );
@@ -49,6 +55,151 @@ const isTextItem = (item: unknown): item is TextItem => (
 );
 
 const normalizeExtractedText = (text: string): string => text.replace(/\s+/gu, " ").trim();
+
+const CHINESE_DIGITS = new Map<string, number>([
+  ["零", 0], ["〇", 0], ["一", 1], ["二", 2], ["三", 3], ["四", 4],
+  ["五", 5], ["六", 6], ["七", 7], ["八", 8], ["九", 9],
+]);
+const CHINESE_UNITS = new Map<string, number>([["十", 10], ["百", 100], ["千", 1_000]]);
+
+const parseChineseChapterNumber = (value: string): number | null => {
+  if (/^\d+$/u.test(value)) {
+    const parsed = Number.parseInt(value, 10);
+    return parsed > 0 ? parsed : null;
+  }
+
+  let total = 0;
+  let currentDigit = 0;
+  for (const character of value) {
+    const digit = CHINESE_DIGITS.get(character);
+    if (digit !== undefined) {
+      currentDigit = digit;
+      continue;
+    }
+    const unit = CHINESE_UNITS.get(character);
+    if (unit === undefined) return null;
+    total += (currentDigit || 1) * unit;
+    currentDigit = 0;
+  }
+  const parsed = total + currentDigit;
+  return parsed > 0 ? parsed : null;
+};
+
+const parseChineseChapterPrefix = (text: string): {
+  marker: string;
+  chapterNumber: number;
+  suffix: string;
+} | null => {
+  const match = CHINESE_CHAPTER_PREFIX.exec(normalizeExtractedText(text));
+  if (!match) return null;
+  const chapterNumber = parseChineseChapterNumber(match[2] ?? "");
+  if (chapterNumber === null) return null;
+  return {
+    marker: match[1] ?? "",
+    chapterNumber,
+    suffix: normalizeExtractedText(match[3] ?? ""),
+  };
+};
+
+const median = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
+    : (sorted[middle] ?? 0);
+};
+
+const stripTocLeader = (text: string): string => normalizeExtractedText(
+  text.split(TOC_LEADER, 1)[0] ?? "",
+).replace(/\s+\d+\s*$/u, "").trim();
+
+const comparableChapterTitle = (text: string): string => normalizeExtractedText(text)
+  .replace(/[^\p{L}\p{N}]/gu, "");
+
+export const detectChineseChapterBoundaries = (
+  lines: ExtractedLine[],
+): ChineseChapterBoundary[] => {
+  const pageMedianHeights = new Map<number, number>();
+  for (const page of new Set(lines.map((line) => line.page))) {
+    pageMedianHeights.set(page, median(
+      lines.filter((line) => line.page === page).map((line) => line.bbox[3]),
+    ));
+  }
+  const isProminent = (line: ExtractedLine): boolean => {
+    const pageMedian = pageMedianHeights.get(line.page) ?? 0;
+    return line.bbox[3] >= 12 || line.bbox[3] >= pageMedian * 1.25;
+  };
+
+  const tocMarkerIndex = lines.findIndex((line) => TOC_MARKER.test(line.text));
+  const firstConfirmedIndex = lines.findIndex((line, index) => (
+    index > tocMarkerIndex
+    && parseChineseChapterPrefix(line.text) !== null
+    && isProminent(line)
+  ));
+  const tocEndIndex = firstConfirmedIndex === -1 ? lines.length : firstConfirmedIndex;
+  const tocTitles = new Map<number, string>();
+
+  if (tocMarkerIndex !== -1) {
+    for (let index = tocMarkerIndex + 1; index < tocEndIndex; index += 1) {
+      const line = lines[index]!;
+      const parsed = parseChineseChapterPrefix(line.text);
+      if (!parsed || isProminent(line)) continue;
+      const currentHasLeader = TOC_LEADER.test(line.text);
+      const next = lines[index + 1];
+      const nextContinues = !currentHasLeader
+        && next !== undefined
+        && next.page === line.page
+        && parseChineseChapterPrefix(next.text) === null
+        && TOC_LEADER.test(next.text);
+      if (!currentHasLeader && !nextContinues) continue;
+
+      const titleParts = [stripTocLeader(parsed.suffix)].filter(Boolean);
+      if (nextContinues && next) titleParts.push(stripTocLeader(next.text));
+      if (titleParts.length > 0) tocTitles.set(parsed.chapterNumber, titleParts.join(" "));
+    }
+  }
+
+  const detected = new Map<number, ChineseChapterBoundary>();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    const parsed = parseChineseChapterPrefix(line.text);
+    if (!parsed || detected.has(parsed.chapterNumber)) continue;
+    if (tocMarkerIndex !== -1 && index < tocEndIndex) continue;
+
+    const titleParts = [parsed.suffix].filter(Boolean);
+    let previous = line;
+    for (let offset = 1; offset <= 2; offset += 1) {
+      const continuation = lines[index + offset];
+      if (!continuation || continuation.page !== line.page) break;
+      if (parseChineseChapterPrefix(continuation.text)) break;
+      const verticalGap = previous.bbox[1] - continuation.bbox[1];
+      if (
+        continuation.bbox[3] < Math.max(10, line.bbox[3] * 0.75)
+        || verticalGap <= 0
+        || verticalGap > Math.max(30, line.bbox[3] * 2.25)
+      ) break;
+      titleParts.push(normalizeExtractedText(continuation.text));
+      previous = continuation;
+    }
+
+    const extractedTitle = titleParts.join(" ");
+    const tocTitle = tocTitles.get(parsed.chapterNumber);
+    const matchesTocTitle = tocTitle !== undefined
+      && comparableChapterTitle(extractedTitle) === comparableChapterTitle(tocTitle);
+    if (!isProminent(line) && !matchesTocTitle) continue;
+
+    const title = tocTitle ?? extractedTitle;
+    if (!title) continue;
+    detected.set(parsed.chapterNumber, {
+      chapterNumber: parsed.chapterNumber,
+      title: `${parsed.marker} ${title}`,
+      startPage: line.page,
+    });
+  }
+
+  return Array.from(detected.values()).sort((left, right) => left.startPage - right.startPage);
+};
 
 export const isReliableNativeText = (lines: ExtractedLine[]): boolean => {
   const text = lines.map((line) => line.text).join("");
@@ -195,6 +346,9 @@ const findChapterBoundaries = async (
   document: PDFDocumentProxy,
   lines: ExtractedLine[],
 ): Promise<{boundaries: ChapterBoundary[]; source: "outline" | "headings" | "fallback"}> => {
+  const chineseHeadings = detectChineseChapterBoundaries(lines);
+  if (chineseHeadings.length > 0) return {boundaries: chineseHeadings, source: "headings"};
+
   const outline = await document.getOutline();
   const outlined: ChapterBoundary[] = [];
   for (const item of outline ?? []) {
@@ -337,14 +491,19 @@ export const ingestDigitalPdf = async (
       warnings.push("Pages before the first detected chapter use a neutral front-matter container");
     }
 
-    const chapters = boundaries.map((boundary, index) => ({
-      chapterId: index === 0 && boundary.title === "Front Matter"
-        ? "chapter-front-matter"
-        : `chapter-${String(index + 1).padStart(3, "0")}`,
-      title: boundary.title,
-      startPage: boundary.startPage,
-      endPage: (boundaries[index + 1]?.startPage ?? document.numPages + 1) - 1,
-    }));
+    let formalChapterNumber = 0;
+    const chapters = boundaries.map((boundary, index) => {
+      const isFrontMatter = boundary.title === "Front Matter";
+      if (!isFrontMatter) formalChapterNumber += 1;
+      return {
+        chapterId: isFrontMatter
+          ? "chapter-front-matter"
+          : `chapter-${String(formalChapterNumber).padStart(3, "0")}`,
+        title: boundary.title,
+        startPage: boundary.startPage,
+        endPage: (boundaries[index + 1]?.startPage ?? document.numPages + 1) - 1,
+      };
+    });
 
     const pages = pageLines.map((lines, pageIndex) => {
       const pageNumber = pageIndex + 1;

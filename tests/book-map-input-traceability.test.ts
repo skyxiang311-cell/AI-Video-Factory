@@ -20,6 +20,33 @@ const loadMap = async (): Promise<BookMap> => BookMapSchema.parse(
 );
 
 describe("Book Map evidence and traceability", () => {
+  it("keeps front matter out of the formal chapters sent to Book Map", async () => {
+    const source = await loadSource();
+    source.structure.frontMatter = {startPage: 1, endPage: 1};
+    source.structure.chapters[0] = {
+      chapterId: "chapter-front-matter",
+      title: "Front Matter",
+      startPage: 1,
+      endPage: 1,
+    };
+    source.pages[0]!.contentBlocks = source.pages[0]!.contentBlocks.map((block) => ({
+      ...block,
+      chapterId: "chapter-front-matter",
+    }));
+    const parsed = BookSourceSchema.parse(source);
+
+    const pack = buildBookMapEvidencePack(parsed);
+
+    expect(pack.structure.chapters.map((chapter) => chapter.chapterId)).toEqual([
+      "chapter-feedback-window",
+    ]);
+    expect(pack.chapters.map((chapter) => chapter.chapterId)).toEqual([
+      "chapter-feedback-window",
+    ]);
+    expect(pack.chapters.flatMap((chapter) => chapter.blocks.map((block) => block.chapterId)))
+      .not.toContain("chapter-front-matter");
+  });
+
   it("excludes low-confidence pages and blocks from the provider evidence pack", async () => {
     const source = await loadSource();
     source.pages[0]!.contentBlocks.push({

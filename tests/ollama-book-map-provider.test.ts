@@ -53,7 +53,7 @@ describe("Ollama Book Map provider adapter", () => {
       messages: Array<{role: string; content: string}>;
     };
     expect(body.model).toBe("qwen3:14b");
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
     expect(body.think).toBe(false);
     expect(body.options).toEqual({num_ctx: 32768, num_predict: 3072, temperature: 0});
     expect(body.format).not.toHaveProperty("$schema");
@@ -69,6 +69,7 @@ describe("Ollama Book Map provider adapter", () => {
     expect(body.messages[0]).toMatchObject({role: "system"});
     expect(body.messages[0]?.content).toContain("简体中文");
     expect(body.messages[0]?.content).toContain("有 blocks 的章节必须标为 analyzed");
+    expect(body.messages[0]?.content).toContain("recurringConcepts 中的每个 chapterId");
     expect(body.messages[1]?.content).toContain("p1-bmicro-retrospective");
   });
 
@@ -84,6 +85,56 @@ describe("Ollama Book Map provider adapter", () => {
     const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
 
     await expect(provider.analyze(buildBookMapEvidencePack(source))).rejects.toThrow();
+  });
+
+  it("assembles streamed Ollama JSON chunks before Schema validation", async () => {
+    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
+    const {artifact: _artifact, provider: _provider, ...draft} = map;
+    const serialized = JSON.stringify(draft);
+    const splitAt = Math.floor(serialized.length / 2);
+    const responseBody = [
+      JSON.stringify({message: {content: serialized.slice(0, splitAt)}, done: false}),
+      JSON.stringify({message: {content: serialized.slice(splitAt)}, done: true}),
+    ].join("\n");
+    const provider = createOllamaBookMapProviderFromEnv({
+      env: {},
+      fetch: async () => new Response(responseBody, {status: 200}),
+    });
+    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
+
+    await expect(provider.analyze(buildBookMapEvidencePack(source))).resolves.toEqual(draft);
+  });
+
+  it("scales the structured-output budget for a 24-chapter book", async () => {
+    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
+    const {artifact: _artifact, provider: _provider, ...draft} = map;
+    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
+    const input = buildBookMapEvidencePack(source);
+    const prototype = input.chapters[0]!;
+    input.chapters = Array.from({length: 24}, (_, index) => ({
+      ...structuredClone(prototype),
+      chapterId: `chapter-${String(index + 1).padStart(3, "0")}`,
+      title: `第 ${index + 1} 章`,
+    }));
+    let numPredict = 0;
+    const provider = createOllamaBookMapProviderFromEnv({
+      env: {},
+      fetch: async (_request, init) => {
+        const body = JSON.parse(String(init?.body)) as {
+          options: {num_predict: number};
+        };
+        numPredict = body.options.num_predict;
+        return new Response(JSON.stringify({
+          model: "qwen3:14b",
+          message: {role: "assistant", content: JSON.stringify(draft)},
+          done: true,
+        }), {status: 200});
+      },
+    });
+
+    await provider.analyze(input);
+
+    expect(numPredict).toBe(12_288);
   });
 
   it("samples oversized evidence evenly while retaining real source references", async () => {

@@ -5,7 +5,9 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {describe, expect, it} from "vitest";
 import {
+  detectChineseChapterBoundaries,
   detectBookTextLanguage,
+  type ExtractedLine,
   ingestDigitalPdf,
 } from "../src/research/book/pdf-ingest";
 import {BookSourceSchema} from "../src/research/book/source-schema";
@@ -13,7 +15,58 @@ import {BookSourceSchema} from "../src/research/book/source-schema";
 const fixturePath = fileURLToPath(new URL("./fixtures/digital-book.pdf", import.meta.url));
 const textlessFixturePath = fileURLToPath(new URL("./fixtures/textless-book.pdf", import.meta.url));
 
+const extractedLine = (
+  page: number,
+  text: string,
+  y: number,
+  height = 9.5,
+): ExtractedLine => ({
+  page,
+  text,
+  bbox: [60, y, 300, height],
+  confidence: 0.99,
+});
+
 describe("digital PDF book ingest", () => {
+  it("confirms Chinese chapter starts in body text and merges split titles", () => {
+    const lines = [
+      extractedLine(2, "目录", 550),
+      extractedLine(2, "第一章中国社会分层概述 ........ 1", 520),
+      extractedLine(2, "第二章 中国社会分层结构的特征 ........ 15", 500),
+      extractedLine(3, "第二十四章 中国社会学界关于社会分层的研究 ........ 502", 520),
+      extractedLine(4, "第二十四章是文献梳理，不是正文标题。", 400),
+      extractedLine(5, "第一章", 544, 14),
+      extractedLine(5, "中国社会分层概述", 526, 14),
+      extractedLine(10, "第二章 中国社会分层结构的特征", 544),
+      extractedLine(20, "第二十四章中国社会学界关于社会分层的研究", 544, 14),
+    ];
+
+    expect(detectChineseChapterBoundaries(lines)).toEqual([
+      {chapterNumber: 1, title: "第一章 中国社会分层概述", startPage: 5},
+      {chapterNumber: 2, title: "第二章 中国社会分层结构的特征", startPage: 10},
+      {
+        chapterNumber: 24,
+        title: "第二十四章 中国社会学界关于社会分层的研究",
+        startPage: 20,
+      },
+    ]);
+  });
+
+  it("merges a chapter title that continues across two lines after the marker", () => {
+    const lines = [
+      extractedLine(203, "第十章", 544, 14),
+      extractedLine(203, "从“倒丁字型”向“土字型”", 526, 14),
+      extractedLine(203, "社会结构的变迁", 508, 14),
+      extractedLine(203, "第九章介绍了社会分层的测量方法。", 407),
+    ];
+
+    expect(detectChineseChapterBoundaries(lines)).toEqual([{
+      chapterNumber: 10,
+      title: "第十章 从“倒丁字型”向“土字型” 社会结构的变迁",
+      startPage: 203,
+    }]);
+  });
+
   it("extracts true pages and stable source blocks into the BookSource contract", async () => {
     const source = await ingestDigitalPdf(fixturePath, {
       createdAt: "2026-08-12T00:00:00.000Z",

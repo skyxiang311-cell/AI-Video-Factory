@@ -32,6 +32,10 @@ const referenceKey = (reference: BookSourceRef): string => (
 );
 
 export const buildBookMapEvidencePack = (source: BookSource): BookMapEvidencePack => {
+  const formalChapters = source.structure.chapters.filter((chapter) => (
+    chapter.chapterId !== "chapter-front-matter"
+  ));
+  const formalChapterIds = new Set(formalChapters.map((chapter) => chapter.chapterId));
   const excludedPages = new Set(
     source.extractionQuality.lowConfidencePages.map((entry) => entry.page),
   );
@@ -39,14 +43,16 @@ export const buildBookMapEvidencePack = (source: BookSource): BookMapEvidencePac
     excludedPages.has(page.page)
       ? []
       : page.contentBlocks.filter((block) => (
+          formalChapterIds.has(block.chapterId)
+          &&
           block.confidence >= MINIMUM_BOOK_MAP_BLOCK_CONFIDENCE
         ))
   ));
 
   return {
     metadata: source.metadata,
-    structure: source.structure,
-    chapters: source.structure.chapters.map((chapter) => ({
+    structure: {...source.structure, chapters: formalChapters},
+    chapters: formalChapters.map((chapter) => ({
       ...chapter,
       blocks: eligibleBlocks
         .filter((block) => block.chapterId === chapter.chapterId)
@@ -86,7 +92,9 @@ export const validateBookMapAgainstSource = (
   if (JSON.stringify(map.excludedLowConfidencePages) !== JSON.stringify(expectedExcludedPages)) {
     issues.push("Book Map low-confidence exclusion record differs from source");
   }
-  const sourceChapters = new Map(source.structure.chapters.map((chapter) => [
+  const sourceChapters = new Map(source.structure.chapters
+    .filter((chapter) => chapter.chapterId !== "chapter-front-matter")
+    .map((chapter) => [
     chapter.chapterId,
     chapter,
   ]));
