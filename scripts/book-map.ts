@@ -1,9 +1,9 @@
 import {resolve} from "node:path";
 import {getBookArtifactPaths} from "../src/research/book/artifact-paths";
 import type {BookMapProvider} from "../src/research/book/book-map-provider";
+import {createDefaultBookMapProviderFromEnv} from "../src/research/book/book-map-provider-factory";
 import {createOrReuseBookMap} from "../src/research/book/book-map-service";
 import {readValidatedJson} from "../src/research/book/artifact-store";
-import {createOpenAIBookMapProviderFromEnv} from "../src/research/book/openai-book-map-provider";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 
 interface BookMapCliOptions {
@@ -28,7 +28,7 @@ export const runBookMapCli = async ({
     const jobId = argv[0];
     const paths = getBookArtifactPaths(jobId);
     const source = await readValidatedJson(paths.source, BookSourceSchema);
-    const selectedProvider = provider ?? createOpenAIBookMapProviderFromEnv();
+    const selectedProvider = provider ?? createDefaultBookMapProviderFromEnv();
     const result = await createOrReuseBookMap({
       source,
       outputPath: paths.map,
