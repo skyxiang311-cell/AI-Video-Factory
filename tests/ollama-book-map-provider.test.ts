@@ -5,11 +5,58 @@ import {buildBookMapEvidencePack} from "../src/research/book/book-map-input";
 import {
   createOllamaBookMapProviderFromEnv,
 } from "../src/research/book/ollama-book-map-provider";
+import type {MiniChapterMap, WholeBookSynthesis} from "../src/research/book/book-map-stages";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 
 const loadFixture = async (name: string): Promise<unknown> => JSON.parse(
   await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
 );
+
+const loadStageFixtures = async (): Promise<{
+  evidence: ReturnType<typeof buildBookMapEvidencePack>;
+  minis: MiniChapterMap[];
+  synthesis: WholeBookSynthesis;
+}> => {
+  const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
+  const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
+  return {
+    evidence: buildBookMapEvidencePack(source),
+    minis: map.chapters.map((chapter) => ({
+      analysisStatus: chapter.analysisStatus,
+      chapterId: chapter.chapterId,
+      title: chapter.title,
+      role: chapter.role,
+      oneSentenceSummary: chapter.summary,
+      keyConcepts: ["行动反馈"],
+      candidateTheses: ["候选命题需要下一轮验证。"],
+      importance: chapter.importance,
+      deepReadPriority: chapter.deepReadPriority,
+      sourceRefs: chapter.sourceRefs,
+      analysisConfidence: 0.8,
+    })),
+    synthesis: {
+      analysisLanguage: "zh-CN",
+      coreProblem: map.coreProblem,
+      candidateCoreTheses: map.candidateCoreTheses,
+      structureOverview: map.structureOverview,
+      recurringConcepts: map.recurringConcepts,
+      chapterImportanceRanking: map.chapters.map((chapter) => ({
+        chapterId: chapter.chapterId,
+        importance: chapter.importance,
+        deepReadPriority: chapter.deepReadPriority,
+        reason: "通过全书比较确定本章位置。",
+      })),
+      phase3BTargets: map.phase3BTargets,
+      warnings: map.warnings,
+    },
+  };
+};
+
+const responseFor = (value: unknown): Response => new Response(JSON.stringify({
+  model: "qwen3:14b",
+  message: {role: "assistant", content: JSON.stringify(value)},
+  done: true,
+}), {status: 200});
 
 describe("Ollama Book Map provider adapter", () => {
   it("uses local Ollama with qwen3:14b by default and allows a model override", () => {
@@ -19,158 +66,122 @@ describe("Ollama Book Map provider adapter", () => {
     }).model).toBe("qwen3:32b");
   });
 
-  it("requests structured JSON and parses a Schema-valid draft", async () => {
-    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
-    const {artifact: _artifact, provider: _provider, ...draft} = map;
-    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
+  it("analyzes one chapter with only that chapter's evidence and non-fixed refs", async () => {
+    const {evidence, minis} = await loadStageFixtures();
     let requestUrl = "";
-    let requestInit: RequestInit | undefined;
+    let requestBody: Record<string, unknown> = {};
     const provider = createOllamaBookMapProviderFromEnv({
       env: {},
       fetch: async (input, init) => {
         requestUrl = String(input);
-        requestInit = init;
-        return new Response(JSON.stringify({
-          model: "qwen3:14b",
-          message: {role: "assistant", content: JSON.stringify(draft)},
-          done: true,
-        }), {status: 200});
+        requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return responseFor(minis[0]);
       },
     });
 
-    const result = await provider.analyze(buildBookMapEvidencePack(source));
-
-    expect(result).toEqual(draft);
-    expect(provider.provider).toBe("ollama");
+    await expect(provider.analyzeChapter(evidence.chapters[0]!)).resolves.toEqual(minis[0]);
     expect(requestUrl).toBe("http://127.0.0.1:11434/api/chat");
-    expect(requestInit?.headers).toMatchObject({"Content-Type": "application/json"});
-    const body = JSON.parse(String(requestInit?.body)) as {
-      model: string;
-      stream: boolean;
-      think: boolean;
-      format: Record<string, unknown>;
-      options: {num_ctx: number; num_predict: number; temperature: number};
-      messages: Array<{role: string; content: string}>;
-    };
-    expect(body.model).toBe("qwen3:14b");
-    expect(body.stream).toBe(true);
-    expect(body.think).toBe(false);
-    expect(body.options).toEqual({num_ctx: 32768, num_predict: 3072, temperature: 0});
-    expect(body.format).not.toHaveProperty("$schema");
-    expect(JSON.stringify(body.format)).not.toContain('"oneOf"');
-    expect(JSON.stringify(body.format)).not.toContain("\\\\d");
-    expect(JSON.stringify(body.format)).toContain("[0-9]");
-    const topLevelProperties = body.format.properties as Record<string, {
-      minItems?: number;
-      maxItems?: number;
-    }>;
-    expect(topLevelProperties.chapters).toMatchObject({minItems: 2, maxItems: 2});
-    expect(topLevelProperties.candidateCoreTheses?.maxItems).toBe(3);
-    expect(body.messages[0]).toMatchObject({role: "system"});
-    expect(body.messages[0]?.content).toContain("简体中文");
-    expect(body.messages[0]?.content).toContain("有 blocks 的章节必须标为 analyzed");
-    expect(body.messages[0]?.content).toContain("recurringConcepts 中的每个 chapterId");
-    expect(body.messages[1]?.content).toContain("p1-bmicro-retrospective");
+    const messages = requestBody.messages as Array<{role: string; content: string}>;
+    const sent = JSON.parse(messages[1]!.content) as {chapterId: string; blocks: unknown[]};
+    expect(sent.chapterId).toBe(evidence.chapters[0]!.chapterId);
+    expect(sent.blocks).toHaveLength(evidence.chapters[0]!.blocks.length);
+    expect(messages[0]!.content).toContain("只分析当前章节");
+    const format = requestBody.format as {properties: {sourceRefs: {maxItems: number}}};
+    expect(format.properties.sourceRefs.maxItems).toBe(8);
   });
 
-  it("rejects malformed model output", async () => {
-    const provider = createOllamaBookMapProviderFromEnv({
-      env: {},
-      fetch: async () => new Response(JSON.stringify({
-        model: "qwen3:14b",
-        message: {role: "assistant", content: JSON.stringify({analysisLanguage: "en"})},
-        done: true,
-      }), {status: 200}),
-    });
-    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
-
-    await expect(provider.analyze(buildBookMapEvidencePack(source))).rejects.toThrow();
-  });
-
-  it("assembles streamed Ollama JSON chunks before Schema validation", async () => {
-    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
-    const {artifact: _artifact, provider: _provider, ...draft} = map;
-    const serialized = JSON.stringify(draft);
-    const splitAt = Math.floor(serialized.length / 2);
-    const responseBody = [
-      JSON.stringify({message: {content: serialized.slice(0, splitAt)}, done: false}),
-      JSON.stringify({message: {content: serialized.slice(splitAt)}, done: true}),
-    ].join("\n");
-    const provider = createOllamaBookMapProviderFromEnv({
-      env: {},
-      fetch: async () => new Response(responseBody, {status: 200}),
-    });
-    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
-
-    await expect(provider.analyze(buildBookMapEvidencePack(source))).resolves.toEqual(draft);
-  });
-
-  it("scales the structured-output budget for a 24-chapter book", async () => {
-    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
-    const {artifact: _artifact, provider: _provider, ...draft} = map;
-    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
-    const input = buildBookMapEvidencePack(source);
-    const prototype = input.chapters[0]!;
-    input.chapters = Array.from({length: 24}, (_, index) => ({
-      ...structuredClone(prototype),
+  it("synthesizes only MiniChapterMaps and requires whole-book ranking/3-8 targets", async () => {
+    const {evidence, minis, synthesis} = await loadStageFixtures();
+    const expandedMinis = Array.from({length: 24}, (_, index) => ({
+      ...structuredClone(minis[index % minis.length]!),
       chapterId: `chapter-${String(index + 1).padStart(3, "0")}`,
-      title: `第 ${index + 1} 章`,
+      title: `第${index + 1}章`,
     }));
-    let numPredict = 0;
+    const expandedSynthesis = {
+      ...synthesis,
+      chapterImportanceRanking: expandedMinis.map((mini, index) => ({
+        chapterId: mini.chapterId,
+        importance: 40 + index,
+        deepReadPriority: index % 3 === 0 ? "high" as const : "medium" as const,
+        reason: "通过全书比较确定。",
+      })),
+      phase3BTargets: expandedMinis.slice(0, 4).map((mini, index) => ({
+        chapterId: mini.chapterId,
+        priority: 90 - index,
+        reason: "需要进一步深读以核验核心论证与边界。",
+        sourceRefs: mini.sourceRefs,
+      })),
+    };
+    let requestBody: Record<string, unknown> = {};
     const provider = createOllamaBookMapProviderFromEnv({
       env: {},
-      fetch: async (_request, init) => {
-        const body = JSON.parse(String(init?.body)) as {
-          options: {num_predict: number};
-        };
-        numPredict = body.options.num_predict;
-        return new Response(JSON.stringify({
-          model: "qwen3:14b",
-          message: {role: "assistant", content: JSON.stringify(draft)},
-          done: true,
-        }), {status: 200});
+      fetch: async (_input, init) => {
+        requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return responseFor(expandedSynthesis);
       },
     });
 
-    await provider.analyze(input);
+    await provider.synthesize({
+      metadata: evidence.metadata,
+      structure: evidence.structure,
+      miniChapterMaps: expandedMinis,
+      excludedLowConfidencePages: evidence.excludedLowConfidencePages,
+    });
 
-    expect(numPredict).toBe(12_288);
+    const messages = requestBody.messages as Array<{role: string; content: string}>;
+    expect(messages[0]!.content).toContain("24 个 MiniChapterMap");
+    expect(messages[0]!.content).toContain("为什么需要进一步深读");
+    expect(messages[1]!.content).not.toContain("originalText");
+    const format = requestBody.format as {properties: Record<string, {minItems?: number; maxItems?: number}>};
+    expect(format.properties.chapterImportanceRanking).toMatchObject({minItems: 24, maxItems: 24});
+    expect(format.properties.phase3BTargets).toMatchObject({minItems: 3, maxItems: 8});
   });
 
-  it("samples oversized evidence evenly while retaining real source references", async () => {
-    const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
-    const {artifact: _artifact, provider: _provider, ...draft} = map;
-    const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
-    const input = buildBookMapEvidencePack(source);
-    const prototype = input.chapters[0]!.blocks[0]!;
-    input.chapters[0]!.blocks = Array.from({length: 500}, (_, index) => ({
+  it("rejects malformed stage output and assembles streamed JSON chunks", async () => {
+    const {evidence, minis} = await loadStageFixtures();
+    const serialized = JSON.stringify(minis[0]);
+    const splitAt = Math.floor(serialized.length / 2);
+    const provider = createOllamaBookMapProviderFromEnv({
+      env: {},
+      fetch: async () => new Response([
+        JSON.stringify({message: {content: serialized.slice(0, splitAt)}, done: false}),
+        JSON.stringify({message: {content: serialized.slice(splitAt)}, done: true}),
+      ].join("\n"), {status: 200}),
+    });
+    await expect(provider.analyzeChapter(evidence.chapters[0]!)).resolves.toEqual(minis[0]);
+
+    const invalidProvider = createOllamaBookMapProviderFromEnv({
+      env: {},
+      fetch: async () => responseFor({analysisLanguage: "en"}),
+    });
+    await expect(invalidProvider.analyzeChapter(evidence.chapters[0]!)).rejects.toThrow();
+  });
+
+  it("samples an oversized chapter evenly while retaining real source references", async () => {
+    const {evidence, minis} = await loadStageFixtures();
+    const chapter = structuredClone(evidence.chapters[0]!);
+    const prototype = chapter.blocks[0]!;
+    chapter.blocks = Array.from({length: 500}, (_, index) => ({
       ...prototype,
       blockId: `p${index + 1}-b1`,
       page: index + 1,
       originalText: `第 ${index + 1} 页的真实证据。`,
     }));
-    let sentInput: typeof input | undefined;
+    let sent: typeof chapter | undefined;
     const provider = createOllamaBookMapProviderFromEnv({
       env: {},
       fetch: async (_request, init) => {
-        const body = JSON.parse(String(init?.body)) as {
-          messages: Array<{content: string}>;
-        };
-        sentInput = JSON.parse(body.messages[1]!.content) as typeof input;
-        return new Response(JSON.stringify({
-          model: "qwen3:14b",
-          message: {role: "assistant", content: JSON.stringify(draft)},
-          done: true,
-        }), {status: 200});
+        const body = JSON.parse(String(init?.body)) as {messages: Array<{content: string}>};
+        sent = JSON.parse(body.messages[1]!.content) as typeof chapter;
+        return responseFor({...minis[0], sourceRefs: [{
+          type: "book", chapterId: chapter.chapterId, page: 1, blockId: "p1-b1",
+        }]});
       },
     });
 
-    await provider.analyze(input);
-
-    const sentBlocks = sentInput?.chapters[0]?.blocks ?? [];
-    expect(sentBlocks.length).toBeLessThanOrEqual(120);
-    expect(sentBlocks[0]?.blockId).toBe("p1-b1");
-    expect(sentBlocks.at(-1)?.blockId).toBe("p500-b1");
-    expect(new Set(sentBlocks.map((block) => block.page)).size).toBe(sentBlocks.length);
+    await provider.analyzeChapter(chapter);
+    expect(sent!.blocks.length).toBeLessThanOrEqual(48);
+    expect(sent!.blocks[0]?.blockId).toBe("p1-b1");
+    expect(sent!.blocks.at(-1)?.blockId).toBe("p500-b1");
   });
 });

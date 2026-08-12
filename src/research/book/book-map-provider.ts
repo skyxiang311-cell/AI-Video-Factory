@@ -1,8 +1,16 @@
-import type {BookMapDraft} from "./book-map-schema";
-import type {BookMapEvidencePack} from "./book-map-input";
+import type {
+  MiniChapterEvidence,
+  MiniChapterMap,
+  WholeBookSynthesis,
+  WholeBookSynthesisInput,
+} from "./book-map-stages";
 
 export interface BookMapProvider {
   readonly provider: string;
   readonly model: string;
-  analyze(input: BookMapEvidencePack): Promise<BookMapDraft>;
+  analyzeChapter(input: MiniChapterEvidence): Promise<MiniChapterMap>;
+  synthesize(
+    input: WholeBookSynthesisInput,
+    qualityFeedback?: string[],
+  ): Promise<WholeBookSynthesis>;
 }

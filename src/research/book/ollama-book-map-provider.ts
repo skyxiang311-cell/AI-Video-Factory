@@ -1,62 +1,40 @@
 import {z} from "zod";
-import {
-  BookMapDraftSchema,
-  BookMapStructuredOutputSchema,
-  type BookMapDraft,
-} from "./book-map-schema";
-import type {BookMapEvidencePack} from "./book-map-input";
 import type {BookMapProvider} from "./book-map-provider";
+import {
+  MiniChapterMapSchema,
+  WholeBookSynthesisSchema,
+  type MiniChapterEvidence,
+  type MiniChapterMap,
+  type WholeBookSynthesis,
+  type WholeBookSynthesisInput,
+} from "./book-map-stages";
 
 const OLLAMA_CHAT_URL = "http://127.0.0.1:11434/api/chat";
 const DEFAULT_OLLAMA_BOOK_MAP_MODEL = "qwen3:14b";
-const MAX_OLLAMA_EVIDENCE_BLOCKS = 120;
-const MIN_OLLAMA_OUTPUT_TOKENS = 3_072;
-const OLLAMA_OUTPUT_TOKENS_PER_CHAPTER = 512;
+const MAX_CHAPTER_EVIDENCE_BLOCKS = 48;
 
-const createStructuredOutputSchema = (
-  input: BookMapEvidencePack,
-): Record<string, unknown> => {
-  const generated = z.toJSONSchema(BookMapStructuredOutputSchema, {target: "draft-7"});
-  const {$schema: _schemaDeclaration, ...schema} = generated;
-  const constrainForOllama = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      value.forEach(constrainForOllama);
-      return;
-    }
-    if (!value || typeof value !== "object") return;
-    const record = value as Record<string, unknown>;
-    if (record.type === "array") {
-      const minimum = typeof record.minItems === "number" ? record.minItems : 0;
-      record.maxItems = Math.max(minimum, 3);
-    }
-    for (const [key, child] of Object.entries(record)) {
-      if (key === "pattern" && typeof child === "string") {
-        record[key] = child.replaceAll("\\d", "[0-9]");
-      } else {
-        constrainForOllama(child);
-      }
-    }
-  };
-  constrainForOllama(schema);
-  const properties = schema.properties as Record<string, Record<string, unknown>>;
-  properties.chapters!.minItems = input.chapters.length;
-  properties.chapters!.maxItems = input.chapters.length;
-  properties.excludedLowConfidencePages!.minItems = input.excludedLowConfidencePages.length;
-  properties.excludedLowConfidencePages!.maxItems = input.excludedLowConfidencePages.length;
-  return schema;
-};
+const MINI_CHAPTER_INSTRUCTIONS = [
+  "你是 Book Deep Reading Round 1 的逐章分析器；只分析当前章节。",
+  "所有分析字段用简体中文，原文专有名词可保留。",
+  "只能使用输入中当前章节的 evidence blocks，不得使用外部知识或补充原书没有的事实。",
+  "摘要必须具体概括本章内容，避免‘本章介绍/分析/探讨/讨论了’等模板句式。",
+  "importance 为本章对理解全书的初始绝对评分 0-100；全书相对排序由下一阶段完成。",
+  "sourceRefs 只引用输入里真实存在的 chapterId/page/blockId，按判断所需选择 1-8 条，不要机械固定数量。",
+  "candidateTheses 只是下一轮待验证假设，不得伪装成已完成的 Claim/Evidence 深读。",
+  "不要做外部核验、视频选题或脚本创作。",
+].join("\n");
 
-const BOOK_MAP_INSTRUCTIONS = [
-  "你是 Book Deep Reading Round 1 全书鸟瞰分析器。",
-  "所有分析字段必须使用简体中文；原文专有名词可保留。",
-  "只能使用输入 evidence pack 中提供的书籍内容，不得补充原书没有的事实，不得使用外部知识。",
-  "每个实质判断必须引用输入中真实存在的 chapterId、page、blockId。",
-  "候选核心命题只是下一轮待验证假设，不得写成已经完成 Claim 深读的结论。",
-  "没有 blocks 的章节必须标为 insufficient_evidence，重要性设为 0，deepReadPriority 设为 low，sourceRefs 为空。",
-  "有 blocks 的章节必须标为 analyzed，并引用该章节输入中真实存在的 source refs。",
-  "recurringConcepts 中的每个 chapterId 都必须在该概念的 sourceRefs 中至少有一条同 chapterId 引用。",
-  "保持输出简洁；每个判断最多引用三个最直接的 source refs。",
-  "不要进行逐章 Claim/Evidence 深读、外部核验、视频选题或脚本创作。",
+const wholeBookInstructions = (chapterCount: number): string => [
+  `你是 Book Deep Reading Round 1 的全书综合分析器。输入包含 ${chapterCount} 个 MiniChapterMap。`,
+  "只比较输入的 MiniChapterMap，不得使用外部知识，不得补充原书没有的事实。",
+  "所有分析字段用简体中文，原文专有名词可保留。",
+  "必须覆盖所有章节并给出全书相对 importance 排名；不得全部相同，至少形成 3 个不同分值档位。",
+  "评分时先按全书贡献排序：最高层 90-100、关键支撑层 75-89、补充或案例层 50-74；必须依据各章角色拉开分值，禁止统一给 0、80 或任何相同分数。",
+  "前半本与后半本必须公平参与比较，不得按章节顺序机械降分。",
+  "Phase3BTargets 必须从全书比较后选择 3-8 章，不能机械只选开头章节。",
+  "每个推荐理由必须明确说明为什么需要进一步深读，例如需要核验的论证、关键概念、证据链或适用边界。",
+  "sourceRefs 只能复用 MiniChapterMap 中已有的真实引用，按实际论证需要选择，不要固定条数。",
+  "不要进行 Phase 3B Claim/Evidence 深读、外部核验、视频选题或脚本创作。",
 ].join("\n");
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -75,6 +53,45 @@ interface OllamaChatResponse {
   message?: {content?: string};
   error?: string;
 }
+
+const toOllamaSchema = (schema: z.ZodType): Record<string, unknown> => {
+  const generated = z.toJSONSchema(schema, {target: "draft-7"});
+  const {$schema: _schemaDeclaration, ...result} = generated;
+  const normalize = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(normalize);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (record.type === "array" && typeof record.maxItems !== "number") {
+      record.maxItems = Math.max(typeof record.minItems === "number" ? record.minItems : 0, 2);
+    }
+    for (const [key, child] of Object.entries(record)) {
+      if (key === "pattern" && typeof child === "string") record[key] = child.replaceAll("\\d", "[0-9]");
+      else normalize(child);
+    }
+  };
+  normalize(result);
+  return result;
+};
+
+const createWholeBookSchema = (
+  chapterCount: number,
+  analyzedChapterCount: number,
+): Record<string, unknown> => {
+  const schema = toOllamaSchema(WholeBookSynthesisSchema);
+  const properties = schema.properties as Record<string, Record<string, unknown>>;
+  properties.candidateCoreTheses!.maxItems = 3;
+  properties.recurringConcepts!.maxItems = 4;
+  const structureProperties = properties.structureOverview!.properties as Record<string, Record<string, unknown>>;
+  structureProperties.parts!.maxItems = 4;
+  properties.chapterImportanceRanking!.minItems = chapterCount;
+  properties.chapterImportanceRanking!.maxItems = chapterCount;
+  properties.phase3BTargets!.minItems = analyzedChapterCount >= 3 ? 3 : Math.min(1, analyzedChapterCount);
+  properties.phase3BTargets!.maxItems = Math.min(8, analyzedChapterCount);
+  return schema;
+};
 
 const readOllamaChatResponse = async (response: Response): Promise<OllamaChatResponse> => {
   if (!response.body) return {};
@@ -103,7 +120,6 @@ const readOllamaChatResponse = async (response: Response): Promise<OllamaChatRes
     if (done) break;
   }
   consumeLine(pending);
-
   return {message: {content}, error};
 };
 
@@ -113,20 +129,6 @@ const sampleEvenly = <T>(items: T[], limit: number): T[] => {
   return Array.from({length: limit}, (_, index) => (
     items[Math.round(index * (items.length - 1) / (limit - 1))]!
   ));
-};
-
-const compactEvidencePack = (input: BookMapEvidencePack): BookMapEvidencePack => {
-  const blocksPerChapter = Math.max(
-    1,
-    Math.floor(MAX_OLLAMA_EVIDENCE_BLOCKS / input.chapters.length),
-  );
-  return {
-    ...input,
-    chapters: input.chapters.map((chapter) => ({
-      ...chapter,
-      blocks: sampleEvenly(chapter.blocks, blocksPerChapter),
-    })),
-  };
 };
 
 export class OllamaBookMapProvider implements BookMapProvider {
@@ -139,12 +141,13 @@ export class OllamaBookMapProvider implements BookMapProvider {
     this.request = request;
   }
 
-  async analyze(input: BookMapEvidencePack): Promise<BookMapDraft> {
-    const compactInput = compactEvidencePack(input);
-    const outputTokenBudget = Math.max(
-      MIN_OLLAMA_OUTPUT_TOKENS,
-      compactInput.chapters.length * OLLAMA_OUTPUT_TOKENS_PER_CHAPTER,
-    );
+  private async requestStructured<T>(
+    instructions: string,
+    input: unknown,
+    schema: z.ZodType<T>,
+    format: Record<string, unknown>,
+    options: {num_ctx: number; num_predict: number},
+  ): Promise<T> {
     const response = await this.request(OLLAMA_CHAT_URL, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -152,11 +155,11 @@ export class OllamaBookMapProvider implements BookMapProvider {
         model: this.model,
         stream: true,
         think: false,
-        format: createStructuredOutputSchema(compactInput),
-        options: {num_ctx: 32768, num_predict: outputTokenBudget, temperature: 0},
+        format,
+        options: {...options, temperature: 0},
         messages: [
-          {role: "system", content: BOOK_MAP_INSTRUCTIONS},
-          {role: "user", content: JSON.stringify(compactInput)},
+          {role: "system", content: instructions},
+          {role: "user", content: JSON.stringify(input)},
         ],
       }),
     });
@@ -168,8 +171,38 @@ export class OllamaBookMapProvider implements BookMapProvider {
     }
     const content = responseBody.message?.content;
     if (!content?.trim()) throw new Error("Ollama Book Map response contained no content");
+    return schema.parse(JSON.parse(content));
+  }
 
-    return BookMapDraftSchema.parse(JSON.parse(content));
+  async analyzeChapter(input: MiniChapterEvidence): Promise<MiniChapterMap> {
+    const compactInput = {
+      ...input,
+      blocks: sampleEvenly(input.blocks, MAX_CHAPTER_EVIDENCE_BLOCKS),
+    };
+    return this.requestStructured(
+      MINI_CHAPTER_INSTRUCTIONS,
+      compactInput,
+      MiniChapterMapSchema,
+      toOllamaSchema(MiniChapterMapSchema),
+      {num_ctx: 8192, num_predict: 1536},
+    );
+  }
+
+  async synthesize(
+    input: WholeBookSynthesisInput,
+    qualityFeedback?: string[],
+  ): Promise<WholeBookSynthesis> {
+    const analyzedCount = input.miniChapterMaps.filter((mini) => mini.analysisStatus === "analyzed").length;
+    const correction = qualityFeedback?.length
+      ? `\n上一次综合结果未通过质量门，必须修正以下问题：\n- ${qualityFeedback.join("\n- ")}\n请重新比较全部章节，禁止重复上一次不合格的分值与目标选择。`
+      : "";
+    return this.requestStructured(
+      wholeBookInstructions(input.miniChapterMaps.length) + correction,
+      input,
+      WholeBookSynthesisSchema,
+      createWholeBookSchema(input.miniChapterMaps.length, analyzedCount),
+      {num_ctx: 32768, num_predict: 6144},
+    );
   }
 }
 
