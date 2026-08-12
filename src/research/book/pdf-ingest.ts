@@ -9,6 +9,11 @@ import {
 import type {TextItem} from "pdfjs-dist/types/src/display/api.d.ts";
 import {createLocalOcrEngine, type LocalOcrEngine, type OcrLine} from "./local-ocr";
 import {renderPdfPageForOcr, type RenderedPdfPage} from "./pdf-page-render";
+import {
+  extractAndPersistPdfPageVisuals,
+  type ExtractedPdfVisualElement,
+  type VisualClassificationLine,
+} from "./pdf-visual-extract";
 import {BookSourceSchema, type BookSource} from "./source-schema";
 
 type DetectedLanguage = "zh-CN" | "ja" | "en" | "und";
@@ -125,6 +130,27 @@ const extractPageLines = async (
   }));
 };
 
+const extractVisualClassificationLines = async (
+  document: PDFDocumentProxy,
+  pageNumber: number,
+): Promise<VisualClassificationLine[]> => {
+  const page = await document.getPage(pageNumber);
+  const textContent = await page.getTextContent({disableNormalization: false});
+
+  return textContent.items
+    .filter(isTextItem)
+    .map((item) => ({
+      text: normalizeExtractedText(item.str),
+      bbox: [
+        roundCoordinate(Number(item.transform[4] ?? 0)),
+        roundCoordinate(Number(item.transform[5] ?? 0)),
+        roundCoordinate(Math.abs(item.width)),
+        roundCoordinate(Math.abs(item.height || Number(item.transform[3] ?? 0))),
+      ] as [number, number, number, number],
+    }))
+    .filter((line) => line.text.length > 0);
+};
+
 const mapOcrLineToPdf = (
   line: OcrLine,
   pageNumber: number,
@@ -202,7 +228,7 @@ const toMetadataRecord = (value: object): Record<string, unknown> => value as Re
 
 export const ingestDigitalPdf = async (
   pdfPath: string,
-  options: {createdAt?: string} = {},
+  options: {createdAt?: string; visualsDirectory?: string} = {},
 ): Promise<BookSource> => {
   const absolutePath = resolve(pdfPath);
   const bytes = await readFile(absolutePath);
@@ -217,6 +243,7 @@ export const ingestDigitalPdf = async (
   try {
     const document = await loadingTask.promise;
     const pageLines: ExtractedLine[][] = [];
+    const pageVisualElements: ExtractedPdfVisualElement[][] = [];
     const pageConfidences: number[] = [];
     const ocrPages = new Set<number>();
     const lowConfidencePages: Array<{
@@ -230,6 +257,14 @@ export const ingestDigitalPdf = async (
       if (isReliableNativeText(nativeLines)) {
         pageLines.push(nativeLines);
         pageConfidences.push(0.99);
+        pageVisualElements.push(options.visualsDirectory
+          ? await extractAndPersistPdfPageVisuals({
+              page: await document.getPage(pageNumber),
+              pageNumber,
+              textLines: await extractVisualClassificationLines(document, pageNumber),
+              visualsDirectory: options.visualsDirectory,
+            })
+          : []);
         continue;
       }
 
@@ -251,6 +286,14 @@ export const ingestDigitalPdf = async (
 
       pageLines.push(retainedLines);
       pageConfidences.push(pageConfidence);
+      pageVisualElements.push(options.visualsDirectory
+        ? await extractAndPersistPdfPageVisuals({
+            page,
+            pageNumber,
+            textLines: await extractVisualClassificationLines(document, pageNumber),
+            visualsDirectory: options.visualsDirectory,
+          })
+        : []);
       warnings.push(`PDF page ${pageNumber} used local OCR fallback`);
       if (pageConfidence < 0.85) {
         lowConfidencePages.push({
@@ -328,7 +371,7 @@ export const ingestDigitalPdf = async (
           bbox: line.bbox,
           confidence: line.confidence ?? 0.99,
         })),
-        visualElements: [],
+        visualElements: pageVisualElements[pageIndex] ?? [],
       };
     });
 

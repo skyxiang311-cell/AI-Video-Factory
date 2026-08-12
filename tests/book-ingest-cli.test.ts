@@ -11,6 +11,9 @@ import {BookSourceSchema} from "../src/research/book/source-schema";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/digital-book.pdf", import.meta.url));
 const scannedFixturePath = fileURLToPath(new URL("./fixtures/scanned-book.pdf", import.meta.url));
+const complexFixturePath = fileURLToPath(
+  new URL("./fixtures/complex-visual-book.pdf", import.meta.url),
+);
 const originalWorkingDirectory = process.cwd();
 let temporaryDirectory: string;
 
@@ -48,6 +51,7 @@ describe("book ingest CLI", () => {
       outputPath,
       pageCount: 2,
       blockCount: 4,
+      visualElementCount: 0,
     });
   });
 
@@ -76,8 +80,41 @@ describe("book ingest CLI", () => {
       outputPath,
       pageCount: 2,
       blockCount,
+      visualElementCount: 0,
     });
   }, 60_000);
+
+  it("persists complex PDF visual crops beside the Schema-valid source", async () => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+
+    const exitCode = await runBookIngestCli({
+      argv: [complexFixturePath],
+      stdout: (message) => stdout.push(message),
+      stderr: (message) => stderr.push(message),
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toEqual([]);
+    const outputPath = resolve("output/complex-visual-book/book/book-source.json");
+    const persisted = BookSourceSchema.parse(JSON.parse(await readFile(outputPath, "utf8")));
+    const elements = persisted.pages.flatMap((page) => page.visualElements);
+    const blockCount = persisted.pages.flatMap((page) => page.contentBlocks).length;
+    const summary = JSON.parse(stdout.join("\n")) as Record<string, unknown>;
+
+    expect(elements).toHaveLength(4);
+    for (const element of elements) {
+      const png = await readFile(resolve("output/complex-visual-book/book", element.assetPath!));
+      expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
+    }
+    expect(summary).toEqual({
+      jobId: "complex-visual-book",
+      outputPath,
+      pageCount: 1,
+      blockCount,
+      visualElementCount: 4,
+    });
+  });
 
   it.each([
     {argv: [], error: "Usage: npm run book:ingest -- <pdf-path>"},

@@ -27,10 +27,12 @@ const ContentBlockSchema = z.object({
 
 const VisualElementSchema = z.object({
   elementId: z.string().regex(/^p\d+-v[a-z0-9-]+$/),
+  page: PageNumberSchema.optional(),
   type: z.enum(["image", "chart", "table", "diagram", "formula", "other"]),
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
   description: z.string().min(1),
   confidence: ConfidenceSchema,
+  assetPath: z.string().regex(/^visuals\/p\d+-v[a-z0-9-]+\.png$/).optional(),
 });
 
 const PageSchema = z.object({
@@ -128,6 +130,7 @@ export const BookSourceSchema = z.object({
 
   const pageNumbers = new Set<number>();
   const blockIds = new Set<string>();
+  const visualElementIds = new Set<string>();
   source.pages.forEach((page, pageIndex) => {
     const pagePath = ["pages", pageIndex, "page"] as (string | number)[];
     ensurePageBound(page.page, pagePath);
@@ -158,11 +161,37 @@ export const BookSourceSchema = z.object({
     });
 
     page.visualElements.forEach((element, elementIndex) => {
+      const path = ["pages", pageIndex, "visualElements", elementIndex] as (string | number)[];
+      if (visualElementIds.has(element.elementId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...path, "elementId"],
+          message: "Visual element ids must be unique",
+        });
+      }
+      visualElementIds.add(element.elementId);
       if (!element.elementId.startsWith(`p${page.page}-`)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["pages", pageIndex, "visualElements", elementIndex, "elementId"],
+          path: [...path, "elementId"],
           message: "Visual element id must use its page prefix",
+        });
+      }
+      if (element.page !== undefined) {
+        ensurePageBound(element.page, [...path, "page"]);
+        if (element.page !== page.page) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [...path, "page"],
+            message: "Visual page must match its containing page",
+          });
+        }
+      }
+      if (element.assetPath && element.assetPath !== `visuals/${element.elementId}.png`) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...path, "assetPath"],
+          message: "Visual asset path must match its element id",
         });
       }
     });

@@ -34,11 +34,18 @@ export const runBookIngestCli = async ({
     }
 
     const jobId = deriveBookIngestJobId(pdfPath);
-    const source = await ingestDigitalPdf(pdfPath);
-    const outputPath = getBookArtifactPaths(jobId).source;
+    const paths = getBookArtifactPaths(jobId);
+    const source = await ingestDigitalPdf(pdfPath, {
+      visualsDirectory: paths.visualsDirectory,
+    });
+    const outputPath = paths.source;
     await writeValidatedJson(outputPath, BookSourceSchema, source);
     const blockCount = source.pages.reduce(
       (count, page) => count + page.contentBlocks.length,
+      0,
+    );
+    const visualElementCount = source.pages.reduce(
+      (count, page) => count + page.visualElements.length,
       0,
     );
 
@@ -47,6 +54,7 @@ export const runBookIngestCli = async ({
       outputPath,
       pageCount: source.metadata.pageCount,
       blockCount,
+      visualElementCount,
     }, null, 2));
     return 0;
   } catch (error) {

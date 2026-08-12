@@ -1,0 +1,68 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 691 >>
+stream
+q
+200 0 0 120 50 560 cm
+BI /W 2 /H 2 /CS /RGB /BPC 8 /F /AHx ID
+FF000000FF000000FFFFFF00>
+EI
+Q
+BT /F1 12 Tf 50 540 Td (Figure 1 Product image) Tj ET
+q
+1 w 0 0 0 RG
+50 350 240 120 re S
+130 350 m 130 470 l S
+210 350 m 210 470 l S
+50 390 m 290 390 l S
+50 430 m 290 430 l S
+Q
+BT /F1 12 Tf 50 330 Td (Table 1 Results) Tj ET
+q
+1 w 0 0 0 RG
+330 350 m 330 480 l 540 480 l S
+350 350 35 60 re f
+410 350 35 95 re f
+470 350 35 125 re f
+Q
+BT /F1 12 Tf 330 330 Td (Chart 1 Growth) Tj ET
+q
+1 w 0 0 0 RG
+80 120 150 90 re S
+330 120 150 90 re S
+230 165 m 330 165 l S
+320 175 m 330 165 l 320 155 l S
+Q
+BT /F1 12 Tf 80 100 Td (Diagram 1 Process) Tj ET
+BT /F1 18 Tf 50 750 Td (Chapter 1 Complex Visual PDF) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Title (Complex Visual Test Book) /Author (Codex Fixture) >>
+endobj
+xref
+0 7
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000241 00000 n
+0000000983 00000 n
+0000001053 00000 n
+trailer
+<< /Size 7 /Root 1 0 R /Info 6 0 R >>
+startxref
+1132
+%%EOF

@@ -10,6 +10,7 @@ export interface BookArtifactPaths {
   directory: string;
   source: string;
   chaptersDirectory: string;
+  visualsDirectory: string;
   synthesis: string;
   verification: string;
   angles: string;
@@ -28,6 +29,7 @@ export const getBookArtifactPaths = (jobId: string): BookArtifactPaths => {
     directory,
     source: resolve(directory, "book-source.json"),
     chaptersDirectory,
+    visualsDirectory: resolve(directory, "visuals"),
     synthesis: resolve(directory, "book-synthesis.json"),
     verification: resolve(directory, "verification.json"),
     angles: resolve(directory, "video-angles.json"),

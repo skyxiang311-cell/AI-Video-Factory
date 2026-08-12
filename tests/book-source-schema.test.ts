@@ -68,10 +68,12 @@ const validBookSource = () => ({
       visualElements: [
         {
           elementId: "p2-v1",
+          page: 2,
           type: "chart",
           bbox: [20, 200, 500, 600],
           description: "流程图",
           confidence: 0.9,
+          assetPath: "visuals/p2-v1.png",
         },
       ],
     },
@@ -195,5 +197,52 @@ describe("BookSourceSchema", () => {
     source.pages.pop();
 
     expectInvalid(source);
+  });
+
+  it("preserves a safe book-relative visual crop path", () => {
+    const source = BookSourceSchema.parse(validBookSource());
+
+    expect(source.pages[1]?.visualElements[0]?.assetPath).toBe("visuals/p2-v1.png");
+    expect(source.pages[1]?.visualElements[0]?.page).toBe(2);
+  });
+
+  it("rejects a visual page that differs from its containing PDF page", () => {
+    const source = validBookSource();
+    source.pages[1]!.visualElements[0]!.page = 1;
+
+    expectInvalidPath(source, "pages.1.visualElements.0.page");
+  });
+
+  it("rejects unsafe visual crop paths", () => {
+    const source = validBookSource();
+    source.pages[1]!.visualElements[0]!.assetPath = "../p2-v1.png";
+
+    expectInvalidPath(source, "pages.1.visualElements.0.assetPath");
+  });
+
+  it("requires a visual crop path to match its element id", () => {
+    const source = validBookSource();
+    source.pages[1]!.visualElements[0]!.assetPath = "visuals/p2-v2.png";
+
+    expectInvalidPath(source, "pages.1.visualElements.0.assetPath");
+  });
+
+  it("rejects duplicate visual element ids", () => {
+    const source = validBookSource();
+    const visualElements = source.pages[1]!.visualElements as Array<{
+      elementId: string;
+      page: number;
+      type: string;
+      bbox: number[];
+      description: string;
+      confidence: number;
+      assetPath: string;
+    }>;
+    visualElements.push({
+      ...visualElements[0]!,
+      bbox: [10, 10, 20, 20],
+    });
+
+    expectInvalidPath(source, "pages.1.visualElements.1.elementId");
   });
 });
