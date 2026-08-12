@@ -8,23 +8,20 @@ import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
 import {evaluateDeepReadingQuality} from "../src/research/book/quality-gate";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 import {BookSynthesisSchema} from "../src/research/book/synthesis-schema";
-import {
-  validateAngleRefs,
-  validateBookSourceRefs,
-  validateEvidenceRefs,
-  validateSelectedAngleRefs,
-} from "../src/research/book/traceability";
+import {validateBookArtifactGraph} from "../src/research/book/traceability";
 import {VerificationRecordSchema} from "../src/research/book/verification-schema";
 import {getStoryboardProfile} from "../src/storyboard/profile";
 
 const BOOK_DEMO_JOB_ID = "book-contract-demo";
 const FIXTURE_DIRECTORY = resolve("templates", "book-deep-reading");
 
-const readFixture = async (name: string): Promise<unknown> => JSON.parse(
-  await readFile(resolve(FIXTURE_DIRECTORY, name), "utf8"),
+const readFixture = async (directory: string, name: string): Promise<unknown> => JSON.parse(
+  await readFile(resolve(directory, name), "utf8"),
 );
 
-export const validateBookContractDemo = async () => {
+export const validateBookContractDemo = async ({
+  fixtureDirectory = FIXTURE_DIRECTORY,
+}: {fixtureDirectory?: string} = {}) => {
   const [
     sourceFixture,
     chapterFixture,
@@ -34,13 +31,13 @@ export const validateBookContractDemo = async () => {
     selectedAngleFixture,
     analysisFixture,
   ] = await Promise.all([
-    readFixture("sample-book-source.json"),
-    readFixture("sample-chapter-analysis.json"),
-    readFixture("sample-book-synthesis.json"),
-    readFixture("sample-verification.json"),
-    readFixture("sample-video-angles.json"),
-    readFixture("sample-selected-angle.json"),
-    readFixture("sample-book-analysis.json"),
+    readFixture(fixtureDirectory, "sample-book-source.json"),
+    readFixture(fixtureDirectory, "sample-chapter-analysis.json"),
+    readFixture(fixtureDirectory, "sample-book-synthesis.json"),
+    readFixture(fixtureDirectory, "sample-verification.json"),
+    readFixture(fixtureDirectory, "sample-video-angles.json"),
+    readFixture(fixtureDirectory, "sample-selected-angle.json"),
+    readFixture(fixtureDirectory, "sample-book-analysis.json"),
   ]);
 
   const source = BookSourceSchema.parse(sourceFixture);
@@ -50,25 +47,28 @@ export const validateBookContractDemo = async () => {
   const videoAngles = VideoAnglesSchema.parse(anglesFixture);
   const selectedAngle = SelectedAngleSchema.parse(selectedAngleFixture);
   const analysis = BookAnalysisSchema.parse(analysisFixture);
-  const claimIds = new Set(chapter.claims.map((claim) => claim.claimId));
-  const evidenceIds = new Set(chapter.evidence.map((evidence) => evidence.evidenceId));
-  const traceabilityIssues = [
-    ...validateBookSourceRefs(source, [chapter]),
-    ...validateEvidenceRefs([chapter]),
-    ...validateAngleRefs(videoAngles, claimIds),
-    ...validateSelectedAngleRefs(selectedAngle, claimIds, evidenceIds),
-  ];
+  const traceabilityIssues = validateBookArtifactGraph({
+    bookSource: source,
+    chapterAnalyses: [chapter],
+    synthesis,
+    verificationRecords: verification,
+    videoAngles,
+    selectedAngle,
+    analysis,
+  });
   const qualityGate = evaluateDeepReadingQuality({
-    score: analysis.deepReadingScore,
-    blockingIssues: traceabilityIssues.length > 0 ? ["CORE_CLAIM_MISSING_SOURCE"] : [],
+    score: analysis.qualityGate.score,
+    blockingIssues: analysis.qualityGate.blockingIssues,
   });
   const storyboardProfile = getStoryboardProfile("book-deep-reading");
 
   if (traceabilityIssues.length > 0) {
     throw new Error(`Traceability validation failed: ${JSON.stringify(traceabilityIssues)}`);
   }
-  if (qualityGate.status !== "approved_for_video") {
-    throw new Error(`Deep-reading quality gate failed: ${qualityGate.status}`);
+  if (analysis.qualityGate.status !== qualityGate.status
+    || analysis.status !== qualityGate.status
+    || qualityGate.status !== "approved_for_video") {
+    throw new Error(`Deep-reading quality gate failed: ${analysis.qualityGate.status}`);
   }
   if (selectedAngle.targetDurationSec * 1_000 < storyboardProfile.targetMinDurationMs
     || selectedAngle.targetDurationSec * 1_000 > storyboardProfile.targetMaxDurationMs) {
@@ -76,22 +76,34 @@ export const validateBookContractDemo = async () => {
   }
 
   const artifactPaths = getBookArtifactPaths(BOOK_DEMO_JOB_ID);
+  const persistedAnalysis = BookAnalysisSchema.parse({
+    ...analysis,
+    artifacts: {
+      source: artifactPaths.source,
+      chapters: [artifactPaths.chapter(chapter.chapterId)],
+      synthesis: artifactPaths.synthesis,
+      verification: artifactPaths.verification,
+      angles: artifactPaths.angles,
+      selectedAngle: artifactPaths.selectedAngle,
+    },
+  });
   await writeValidatedJson(artifactPaths.source, BookSourceSchema, source);
   await writeValidatedJson(artifactPaths.chapter(chapter.chapterId), ChapterAnalysisSchema, chapter);
   await writeValidatedJson(artifactPaths.synthesis, BookSynthesisSchema, synthesis);
   await writeValidatedJson(artifactPaths.verification, VerificationRecordSchema.array(), verification);
   await writeValidatedJson(artifactPaths.angles, VideoAnglesSchema, videoAngles);
   await writeValidatedJson(artifactPaths.selectedAngle, SelectedAngleSchema, selectedAngle);
-  await writeValidatedJson(artifactPaths.analysis, BookAnalysisSchema, analysis);
+  await writeValidatedJson(artifactPaths.analysis, BookAnalysisSchema, persistedAnalysis);
 
+  const indexedAnalysis = await readValidatedJson(artifactPaths.analysis, BookAnalysisSchema);
   await Promise.all([
-    readValidatedJson(artifactPaths.source, BookSourceSchema),
-    readValidatedJson(artifactPaths.chapter(chapter.chapterId), ChapterAnalysisSchema),
-    readValidatedJson(artifactPaths.synthesis, BookSynthesisSchema),
-    readValidatedJson(artifactPaths.verification, VerificationRecordSchema.array()),
-    readValidatedJson(artifactPaths.angles, VideoAnglesSchema),
-    readValidatedJson(artifactPaths.selectedAngle, SelectedAngleSchema),
-    readValidatedJson(artifactPaths.analysis, BookAnalysisSchema),
+    readValidatedJson(indexedAnalysis.artifacts.source, BookSourceSchema),
+    ...indexedAnalysis.artifacts.chapters.map((chapterPath) =>
+      readValidatedJson(chapterPath, ChapterAnalysisSchema)),
+    readValidatedJson(indexedAnalysis.artifacts.synthesis, BookSynthesisSchema),
+    readValidatedJson(indexedAnalysis.artifacts.verification, VerificationRecordSchema.array()),
+    readValidatedJson(indexedAnalysis.artifacts.angles, VideoAnglesSchema),
+    readValidatedJson(indexedAnalysis.artifacts.selectedAngle, SelectedAngleSchema),
   ]);
 
   return {
@@ -102,18 +114,32 @@ export const validateBookContractDemo = async () => {
   };
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve("scripts/book-validate-demo.ts")) {
+export const runBookContractDemoCli = async ({
+  fixtureDirectory = FIXTURE_DIRECTORY,
+  stdout = console.log,
+  stderr = console.error,
+}: {
+  fixtureDirectory?: string;
+  stdout?: (message: string) => void;
+  stderr?: (message: string) => void;
+} = {}): Promise<number> => {
   try {
-    const result = await validateBookContractDemo();
-    console.log(JSON.stringify({
+    const result = await validateBookContractDemo({fixtureDirectory});
+    stdout(JSON.stringify({
       status: result.deepReadingStatus,
       traceabilityIssues: result.traceabilityIssues.length,
       targetDurationSec: result.selectedAngle.targetDurationSec,
       storyboardProfile: result.storyboardProfile.name,
       outputDirectory: getBookArtifactPaths(BOOK_DEMO_JOB_ID).directory,
     }, null, 2));
+    return 0;
   } catch (error) {
-    console.error("Book contract demo validation failed:", error);
-    process.exitCode = 1;
+    const message = error instanceof Error ? error.message : String(error);
+    stderr(`Book contract demo validation failed: ${message}`);
+    return 1;
   }
+};
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve("scripts/book-validate-demo.ts")) {
+  process.exitCode = await runBookContractDemoCli();
 }

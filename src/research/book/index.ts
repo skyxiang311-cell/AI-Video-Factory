@@ -5,3 +5,5 @@ export * from "./synthesis-schema";
 export * from "./verification-schema";
 export * from "./angle-schema";
 export * from "./book-analysis-schema";
+export * from "./quality-gate";
+export * from "./traceability";

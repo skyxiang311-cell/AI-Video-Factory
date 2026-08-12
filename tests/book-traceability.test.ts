@@ -1,5 +1,6 @@
 import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
+import * as traceability from "../src/research/book/traceability";
 import {
   validateAngleRefs,
   validateBookSourceRefs,
@@ -11,6 +12,7 @@ import {BookAnalysisSchema} from "../src/research/book/book-analysis-schema";
 import {BookSourceSchema} from "../src/research/book/source-schema";
 import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
 import {SelectedAngleSchema} from "../src/research/book/angle-schema";
+import {BookSynthesisSchema} from "../src/research/book/synthesis-schema";
 import {VerificationRecordSchema} from "../src/research/book/verification-schema";
 
 const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
@@ -68,7 +70,154 @@ const videoAngle = (claimIds: string[]) => ({
   overallScore: 85,
 });
 
+const validateArtifactGraph = (graph: unknown) => {
+  const validator = Reflect.get(traceability, "validateBookArtifactGraph") as
+    | ((input: unknown) => ReturnType<typeof validateBookSourceRefs>)
+    | undefined;
+
+  expect(validator).toBeTypeOf("function");
+  return validator!(graph);
+};
+
+const loadValidArtifactGraph = async () => {
+  const [source, chapter, synthesis, verificationRecords, videoAngles, selectedAngle, analysis] =
+    await Promise.all([
+      loadBookFixture("sample-book-source.json").then((fixture) => BookSourceSchema.parse(fixture)),
+      loadBookFixture("sample-chapter-analysis.json").then((fixture) => ChapterAnalysisSchema.parse(fixture)),
+      loadBookFixture("sample-book-synthesis.json").then((fixture) => BookSynthesisSchema.parse(fixture)),
+      loadBookFixture("sample-verification.json").then((fixture) =>
+        VerificationRecordSchema.array().parse(fixture)),
+      loadBookFixture("sample-video-angles.json").then((fixture) => VideoAnglesSchema.parse(fixture)),
+      loadBookFixture("sample-selected-angle.json").then((fixture) => SelectedAngleSchema.parse(fixture)),
+      loadBookFixture("sample-book-analysis.json").then((fixture) => BookAnalysisSchema.parse(fixture)),
+    ]);
+
+  return {
+    bookSource: source,
+    chapterAnalyses: [chapter],
+    synthesis,
+    verificationRecords,
+    videoAngles,
+    selectedAngle,
+    analysis,
+  };
+};
+
 describe("book traceability validation", () => {
+  it("blocks eligible angles that depend on an unverified Claim", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.videoAngles.candidates[0]!.eligible = true;
+    graph.videoAngles.candidates[1]!.eligible = true;
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "INELIGIBLE_ANGLE_CLAIM",
+        affectedArtifact: "angle-feedback-before-next-action",
+        affectedClaims: ["claim-feedback-window"],
+      }),
+      expect.objectContaining({
+        code: "INELIGIBLE_ANGLE_CLAIM",
+        affectedArtifact: "angle-monthly-review-limit",
+        affectedClaims: ["claim-feedback-window"],
+      }),
+    ]));
+  });
+
+  it("blocks duplicate angle IDs", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.videoAngles.candidates[1]!.angleId = graph.videoAngles.candidates[0]!.angleId;
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "DUPLICATE_ANGLE_ID"}),
+    ]));
+  });
+
+  it("requires exactly one recommended angle", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.videoAngles.candidates.forEach((angle) => {
+      angle.recommended = false;
+    });
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "INVALID_RECOMMENDATION_COUNT"}),
+    ]));
+  });
+
+  it("requires the recommended angle to be eligible", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.videoAngles.candidates.find((angle) => angle.recommended)!.eligible = false;
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "RECOMMENDED_ANGLE_INELIGIBLE"}),
+    ]));
+  });
+
+  it("requires selected and recommended angle identities to match", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.selectedAngle.angleId = "angle-feedback-before-next-action";
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "SELECTED_ANGLE_NOT_RECOMMENDED"}),
+    ]));
+  });
+
+  it("requires analysis recommendedAngleId to identify the recommended candidate", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.analysis.recommendedAngleId = "angle-feedback-before-next-action";
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "ANALYSIS_RECOMMENDED_ANGLE_MISMATCH"}),
+    ]));
+  });
+
+  it("blocks unknown Claim IDs in synthesis and verification artifacts", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.synthesis.claimRelations[0]!.fromClaimId = "claim-missing-synthesis";
+    graph.verificationRecords[0]!.claimId = "claim-missing-verification";
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "MISSING_SYNTHESIS_CLAIM"}),
+      expect.objectContaining({code: "MISSING_VERIFICATION_CLAIM"}),
+    ]));
+  });
+
+  it("blocks unknown Claim IDs throughout the unified analysis", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.analysis.coreClaimIds = ["claim-missing-core"];
+    graph.analysis.verifiedClaimIds = ["claim-missing-verified"];
+    graph.analysis.synthesis.claimRelations[0]!.toClaimId = "claim-missing-analysis-synthesis";
+    graph.analysis.verificationRecords[0]!.claimId = "claim-missing-analysis-verification";
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "MISSING_ANALYSIS_CORE_CLAIM"}),
+      expect.objectContaining({code: "MISSING_ANALYSIS_VERIFIED_CLAIM"}),
+      expect.objectContaining({code: "MISSING_ANALYSIS_SYNTHESIS_CLAIM"}),
+      expect.objectContaining({code: "MISSING_ANALYSIS_VERIFICATION_CLAIM"}),
+    ]));
+  });
+
+  it("blocks Claim and Evidence IDs duplicated across chapter artifacts", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.chapterAnalyses.push({
+      ...structuredClone(graph.chapterAnalyses[0]!),
+      chapterId: "chapter-duplicate-ids",
+    });
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "DUPLICATE_CLAIM_ID"}),
+      expect.objectContaining({code: "DUPLICATE_EVIDENCE_ID"}),
+    ]));
+  });
+
+  it("blocks a selected angle whose identity is absent from the candidates", async () => {
+    const graph = await loadValidArtifactGraph();
+    graph.selectedAngle.angleId = "angle-missing";
+
+    expect(validateArtifactGraph(graph)).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "MISSING_SELECTED_ANGLE"}),
+    ]));
+  });
+
   it("keeps unverified claims and not-verifiable synthetic evidence out of an approved selected angle", async () => {
     const chapter = ChapterAnalysisSchema.parse(await loadBookFixture("sample-chapter-analysis.json"));
     const verification = VerificationRecordSchema.array().parse(

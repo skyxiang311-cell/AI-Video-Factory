@@ -10,10 +10,12 @@ import {
 const bookDeepReadingStoryboard = (durationMs: number) => {
   const storyboard = structuredClone(parseVisualStoryboard(sampleStoryboardJson));
   storyboard.profile = "book-deep-reading";
+  const sourceDurationMs = storyboard.format.durationMs;
   const scaleTimestamp = (timestampMs: number): number =>
     timestampMs <= 3_000
       ? timestampMs
-      : 3_000 + (timestampMs - 3_000) * 11;
+      : Math.round(3_000 + (timestampMs - 3_000)
+        * ((durationMs - 3_000) / (sourceDurationMs - 3_000)));
 
   storyboard.format.durationMs = durationMs;
   storyboard.scenes.forEach((scene) => {
@@ -98,6 +100,13 @@ describe("Storyboard V1.1 visual contract", () => {
 
   it("accepts a 300000ms Book Deep Reading storyboard", () => {
     expect(parseVisualStoryboard(bookDeepReadingStoryboard(300_000)).format.durationMs).toBe(300_000);
+  });
+
+  it("rejects a 180001ms knowledge-short storyboard", () => {
+    const storyboard = bookDeepReadingStoryboard(180_001);
+    storyboard.profile = "knowledge-short";
+
+    expect(VisualStoryboardSchema.safeParse(storyboard).success).toBe(false);
   });
 
   it("rejects Book Deep Reading storyboards longer than 360000ms", () => {

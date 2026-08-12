@@ -2,6 +2,7 @@ import {readFile} from "node:fs/promises";
 import {describe, expect, it} from "vitest";
 import {BookAnalysisSchema} from "../src/research/book/book-analysis-schema";
 import {SelectedAngleSchema, VideoAnglesSchema} from "../src/research/book/angle-schema";
+import type {DeepReadingBlockingIssue} from "../src/research/book/quality-gate";
 
 const loadBookFixture = async (name: string): Promise<unknown> => JSON.parse(
   await readFile(new URL(`../templates/book-deep-reading/${name}`, import.meta.url), "utf8"),
@@ -64,12 +65,18 @@ const validBookAnalysis = () => ({
   recommendedAngleId: "angle-feedback-loop",
   artifacts: {
     source: "sample-book-source.json",
-    chapters: "sample-chapter-analysis.json",
+    chapters: ["sample-chapter-analysis.json"],
     synthesis: "sample-book-synthesis.json",
     verification: "sample-verification.json",
     angles: "sample-video-angles.json",
+    selectedAngle: "sample-selected-angle.json",
   },
-  qualityGate: {passed: true},
+  qualityGate: {
+    passed: true,
+    status: "approved_for_video",
+    score: 88,
+    blockingIssues: [] as DeepReadingBlockingIssue[],
+  },
   synthesis: {
     coreThesis: "Focused practice works because feedback turns effort into correction.",
     claimRelations: [],
@@ -160,9 +167,30 @@ describe("book angle and unified analysis schemas", () => {
     for (const status of ["processing", "blocked", "needs_review", "approved_for_video"]) {
       const analysis = validBookAnalysis();
       analysis.status = status;
+      const score = status === "blocked" ? 74 : status === "needs_review" ? 80 : 88;
+      analysis.deepReadingScore = score;
+      analysis.qualityGate = {
+        passed: status === "approved_for_video",
+        status,
+        score,
+        blockingIssues: [],
+      };
 
       expect(BookAnalysisSchema.safeParse(analysis).success).toBe(true);
     }
+  });
+
+  it("rejects an approved analysis whose recorded quality gate is blocked", () => {
+    const analysis = validBookAnalysis();
+    analysis.status = "approved_for_video";
+    analysis.qualityGate = {
+      passed: false,
+      status: "blocked",
+      score: 88,
+      blockingIssues: ["SELECTED_ANGLE_USES_UNVERIFIED_EVIDENCE"],
+    };
+
+    expect(BookAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
   it("requires quality components to sum to one hundred", () => {
