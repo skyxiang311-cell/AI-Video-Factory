@@ -18,7 +18,7 @@ export const StatScene = ({
   const colors = resolveCanvasColors(tone);
 
   return (
-    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} tone={tone}>
+    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} sourceNote={scene.sourceNote} tone={tone}>
       <div style={{fontSize: 44, fontWeight: 650, letterSpacing: 1, marginBottom: 48}}>{title}</div>
       <div
         style={{

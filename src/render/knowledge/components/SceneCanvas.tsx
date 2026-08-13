@@ -15,6 +15,7 @@ type SceneCanvasProps = {
   children: ReactNode;
   sceneIndex: number;
   sceneCount: number;
+  sourceNote?: string;
   tone: CanvasTone;
 };
 
@@ -24,6 +25,7 @@ export const SceneCanvas = ({
   children,
   sceneIndex,
   sceneCount,
+  sourceNote,
   tone,
 }: SceneCanvasProps) => {
   const colors = resolveCanvasColors(tone);
@@ -83,6 +85,21 @@ export const SceneCanvas = ({
       >
         {children}
       </div>
+      {sourceNote ? (
+        <div
+          style={{
+            bottom: 224,
+            color: colors.muted,
+            fontSize: 23,
+            left: knowledgeTheme.safeArea.left,
+            letterSpacing: 1,
+            opacity: 0.82,
+            position: "absolute",
+          }}
+        >
+          来源提示｜{sourceNote}
+        </div>
+      ) : null}
     </AbsoluteFill>
   );
 };

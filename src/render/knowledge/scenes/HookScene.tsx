@@ -22,6 +22,7 @@ export const HookScene = ({
       branding={branding}
       sceneCount={sceneCount}
       sceneIndex={sceneIndex}
+      sourceNote={scene.sourceNote}
       tone={tone}
     >
       <div

@@ -50,12 +50,18 @@ export const buildVoiceSceneTimings = (input: {
         : nextPart
           ? blockAudioStartMs + nextPart.speechOffsetMs
           : blockAudioStartMs + block.durationMs + block.pauseAfterMs;
+      const speechStartMs = blockAudioStartMs + part.speechOffsetMs;
+      const speechEndMs = Math.min(
+        endMs,
+        speechStartMs + part.speechDurationMs,
+      );
       results.push({
         ...part,
+        speechDurationMs: speechEndMs - speechStartMs,
         startMs: sceneStartMs,
         endMs,
-        speechStartMs: blockAudioStartMs + part.speechOffsetMs,
-        speechEndMs: blockAudioStartMs + part.speechOffsetMs + part.speechDurationMs,
+        speechStartMs,
+        speechEndMs,
       });
       sceneStartMs = endMs;
     });

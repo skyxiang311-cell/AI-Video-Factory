@@ -23,6 +23,10 @@
     "book:audit": "tsx scripts/book-audit.ts"
     ,"book:angles": "tsx scripts/book-angles.ts"
     ,"book:script": "tsx scripts/book-script.ts"
+    ,"book:storyboard": "tsx scripts/book-storyboard.ts"
+    ,"book:voice": "tsx scripts/book-voice.ts"
+    ,"book:subtitles": "tsx scripts/book-subtitles.ts"
+    ,"book:render": "tsx scripts/book-render.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",

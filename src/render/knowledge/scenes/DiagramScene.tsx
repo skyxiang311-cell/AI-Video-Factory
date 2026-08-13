@@ -14,7 +14,7 @@ export const DiagramScene = ({branding, logicalDurationInFrames, scene, sceneCou
   const nodeById = new Map(nodes.map((node, index) => [node.id, positions[index]!]));
 
   return (
-    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} tone={tone}>
+    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} sourceNote={scene.sourceNote} tone={tone}>
       <div style={{fontSize: 66, fontWeight: 850, letterSpacing: -3, lineHeight: 1.2}}>{title}</div>
       <div style={{height: 780, marginTop: 38, position: "relative"}}>
         <svg height="100%" style={{left: 0, overflow: "visible", position: "absolute", top: 0}} viewBox="0 0 100 100" width="100%" preserveAspectRatio="none">

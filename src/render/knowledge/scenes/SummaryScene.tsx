@@ -11,7 +11,7 @@ export const SummaryScene = ({branding, logicalDurationInFrames, scene, sceneCou
   const colors = resolveCanvasColors(tone);
 
   return (
-    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} tone={tone}>
+    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} sourceNote={scene.sourceNote} tone={tone}>
       <div style={{alignItems: "center", display: "flex", gap: 24, marginBottom: 42}}>
         <Icon color={accentColor} name="bookmark" size={58} />
         <div style={{fontSize: 72, fontWeight: 860, letterSpacing: -3}}>{title}</div>

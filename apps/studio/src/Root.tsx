@@ -26,15 +26,28 @@ export const calculateKnowledgeMetadata: CalculateMetadataFunction<VisualStorybo
 };
 
 export const RemotionRoot = () => (
-  <Composition
-    id="KnowledgeDemo"
-    component={VisualKnowledgeVideo}
-    width={1080}
-    height={1920}
-    fps={30}
-    durationInFrames={900}
-    defaultProps={sampleStoryboard}
-    schema={VisualStoryboardPropsSchema}
-    calculateMetadata={calculateKnowledgeMetadata}
-  />
+  <>
+    <Composition
+      id="KnowledgeDemo"
+      component={VisualKnowledgeVideo}
+      width={1080}
+      height={1920}
+      fps={30}
+      durationInFrames={900}
+      defaultProps={sampleStoryboard}
+      schema={VisualStoryboardPropsSchema}
+      calculateMetadata={calculateKnowledgeMetadata}
+    />
+    <Composition
+      id="BookDeepReading"
+      component={VisualKnowledgeVideo}
+      width={1080}
+      height={1920}
+      fps={30}
+      durationInFrames={9000}
+      defaultProps={sampleStoryboard}
+      schema={VisualStoryboardPropsSchema}
+      calculateMetadata={calculateKnowledgeMetadata}
+    />
+  </>
 );

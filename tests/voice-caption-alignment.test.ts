@@ -59,4 +59,21 @@ describe("alignSceneCaptions", () => {
     expect(captions.at(-1)?.endMs).toBe(9000);
     expect(captions.every((caption) => caption.alignmentSource === "duration-weighted-fallback")).toBe(true);
   });
+
+  it("normalizes small Edge boundary overlaps so adjacent captions never overlap", () => {
+    const captions = alignSceneCaptions({
+      sceneId: "scene-evidence",
+      text: "第一段字幕需要清楚，第二段字幕也要清楚。",
+      speechStartMs: 100,
+      speechEndMs: 2300,
+      emphasis: [],
+      boundaries: [
+        {text: "第一段字幕需要清楚", offsetMs: 0, durationMs: 1050},
+        {text: "第二段字幕也要清楚", offsetMs: 1000, durationMs: 1100},
+      ],
+    });
+
+    expect(captions).toHaveLength(2);
+    expect(captions[1]!.startMs).toBeGreaterThanOrEqual(captions[0]!.endMs);
+  });
 });

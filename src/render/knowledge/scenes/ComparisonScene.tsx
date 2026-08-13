@@ -12,7 +12,7 @@ export const ComparisonScene = ({branding, logicalDurationInFrames, scene, scene
   const sides = [left, right] as const;
 
   return (
-    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} tone={tone}>
+    <SceneCanvas accentColor={accentColor} branding={branding} sceneCount={sceneCount} sceneIndex={sceneIndex} sourceNote={scene.sourceNote} tone={tone}>
       <div style={{fontSize: 64, fontWeight: 850, letterSpacing: -3, marginBottom: 50}}>{title}</div>
       <div style={{display: "grid", gap: 20, gridTemplateColumns: "1fr 1fr", position: "relative"}}>
         {sides.map((side, index) => {

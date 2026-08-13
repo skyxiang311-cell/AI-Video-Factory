@@ -2,6 +2,7 @@ import {describe, expect, it} from "vitest";
 import sampleStoryboardJson from "../templates/knowledge/sample-storyboard.json";
 import {parseVisualStoryboard} from "../src/storyboard/visual-schema";
 import {resolveVoiceDrivenStoryboard} from "../src/storyboard/voice-timeline";
+import {buildVoiceSceneTimings} from "../src/storyboard/voice-timeline";
 
 describe("resolveVoiceDrivenStoryboard", () => {
   it("derives scene and caption timing from measured voice segments", () => {
@@ -42,5 +43,22 @@ describe("resolveVoiceDrivenStoryboard", () => {
     expect(resolved.scenes.at(-1)?.endMs).toBe(finalAudioDurationMs);
     expect(resolved.format.durationMs).toBe(finalAudioDurationMs);
     expect(resolved.captions.every((caption) => caption.endMs <= finalAudioDurationMs)).toBe(true);
+  });
+});
+
+describe("buildVoiceSceneTimings", () => {
+  it("clamps the final speech boundary to the measured assembled audio duration", () => {
+    const timings = buildVoiceSceneTimings({
+      leadInMs: 0,
+      tailOutMs: 0,
+      audioDurationMs: 900,
+      blocks: [{
+        durationMs: 1000,
+        pauseAfterMs: 0,
+        parts: [{sceneId: "scene-final", text: "结尾", speechOffsetMs: 100, speechDurationMs: 1000, boundaries: []}],
+      }],
+    });
+
+    expect(timings[0]).toMatchObject({endMs: 900, speechEndMs: 900, speechDurationMs: 800});
   });
 });

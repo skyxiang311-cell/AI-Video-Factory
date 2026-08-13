@@ -158,6 +158,13 @@ const VisualSceneBaseSchema = z.object({
   onScreenText: z.array(z.string().min(1).max(30)).min(1).max(6),
   visualIntent: z.string().min(1),
   assetRefs: z.array(z.string()),
+  sourceRefs: z.array(z.object({
+    type: z.literal("book"),
+    chapterId: z.string().regex(/^chapter-[a-z0-9-]+$/),
+    page: z.number().int().positive(),
+    blockId: z.string().regex(/^p\d+-[a-z0-9-]+$/),
+  })).optional(),
+  sourceNote: z.string().min(1).max(30).optional(),
   emphasis: z.array(z.string().min(1)),
   contentFlags: z.array(z.enum(["foreign-price"])).default([]),
   transition: z.enum(["cut", "fade", "slide-left", "slide-up"]),

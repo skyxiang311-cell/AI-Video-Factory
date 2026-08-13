@@ -99,6 +99,7 @@ const alignWithBoundaries = (
 ): VisualCaption[] => {
   const captions: VisualCaption[] = [];
   let boundaryIndex = 0;
+  let previousCaptionEndMs = input.speechStartMs;
 
   for (const chunk of chunks) {
     const targetLength = Math.max(1, readableLength(chunk));
@@ -117,8 +118,12 @@ const alignWithBoundaries = (
     const last = selected.at(-1)!;
     const startMs = Math.max(
       input.speechStartMs,
+      previousCaptionEndMs,
       Math.round(input.speechStartMs + first.offsetMs),
     );
+    if (startMs >= input.speechEndMs) {
+      return alignByDuration(input, chunks);
+    }
     const endMs = Math.min(
       input.speechEndMs,
       Math.max(startMs + 1, Math.round(input.speechStartMs + last.offsetMs + last.durationMs)),
@@ -133,7 +138,7 @@ const alignWithBoundaries = (
       alignmentSource: "edge-word-boundary",
       tokens: selected.map((boundary) => ({
         text: boundary.text,
-        startMs: Math.max(input.speechStartMs, Math.round(input.speechStartMs + boundary.offsetMs)),
+        startMs: Math.max(startMs, Math.round(input.speechStartMs + boundary.offsetMs)),
         endMs: Math.min(
           endMs,
           Math.max(
@@ -143,6 +148,7 @@ const alignWithBoundaries = (
         ),
       })),
     });
+    previousCaptionEndMs = endMs;
   }
   return captions;
 };
