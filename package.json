@@ -17,7 +17,8 @@
     "book:validate-demo": "tsx scripts/book-validate-demo.ts",
     "book:ingest": "tsx scripts/book-ingest.ts",
     "book:map": "tsx scripts/book-map.ts",
-    "book:chapters": "tsx scripts/book-chapters.ts"
+    "book:chapters": "tsx scripts/book-chapters.ts",
+    "book:deep-read": "tsx scripts/book-deep-read.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
