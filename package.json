@@ -19,7 +19,8 @@
     "book:map": "tsx scripts/book-map.ts",
     "book:chapters": "tsx scripts/book-chapters.ts",
     "book:deep-read": "tsx scripts/book-deep-read.ts",
-    "book:synthesize": "tsx scripts/book-synthesize.ts"
+    "book:synthesize": "tsx scripts/book-synthesize.ts",
+    "book:audit": "tsx scripts/book-audit.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",

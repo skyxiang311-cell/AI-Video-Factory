@@ -9,3 +9,4 @@ export * from "./quality-gate";
 export * from "./traceability";
 export * from "./interrogative-deep-read-schema";
 export * from "./whole-book-argument-synthesis-schema";
+export * from "./independent-audit-schema";

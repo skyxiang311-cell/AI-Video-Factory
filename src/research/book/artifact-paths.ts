@@ -14,6 +14,7 @@ export interface BookArtifactPaths {
   deepReadDirectory: string;
   visualsDirectory: string;
   synthesis: string;
+  audit: string;
   verification: string;
   angles: string;
   selectedAngle: string;
@@ -35,6 +36,7 @@ export const getBookArtifactPaths = (jobId: string): BookArtifactPaths => {
     deepReadDirectory: resolve(directory, "deep-read"),
     visualsDirectory: resolve(directory, "visuals"),
     synthesis: resolve(directory, "book-synthesis.json"),
+    audit: resolve(directory, "audit.json"),
     verification: resolve(directory, "verification.json"),
     angles: resolve(directory, "video-angles.json"),
     selectedAngle: resolve(directory, "selected-angle.json"),
