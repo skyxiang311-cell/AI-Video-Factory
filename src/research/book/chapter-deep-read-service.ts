@@ -48,6 +48,14 @@ interface CreateOptions {
   createdAt?: string;
 }
 
+interface RecoverFromBlockOptions {
+  source: BookSource;
+  map: BookMap;
+  chaptersDirectory: string;
+  chapterId: string;
+  blockId: string;
+}
+
 export interface ChapterDeepReadResult {
   analyses: ChapterAnalysis[];
   cacheHits: Record<string, boolean>;
@@ -252,6 +260,95 @@ const normalizeAndValidate = (
     unsupportedClaimsRemoved: calibrated.unsupportedClaimsRemoved,
     causalOverclaimsCorrected: calibrated.causalOverclaimsCorrected,
   };
+};
+
+export const recoverTargetChapterAnalysisFromBlock = async ({
+  source: rawSource,
+  map: rawMap,
+  chaptersDirectory,
+  chapterId,
+  blockId,
+}: RecoverFromBlockOptions): Promise<ChapterAnalysis> => {
+  const source = BookSourceSchema.parse(rawSource);
+  const map = BookMapSchema.parse(rawMap);
+  const input = buildTargetInput(source, map, chapterId);
+  const block = input.blocks.find((item) => item.blockId === blockId);
+  if (!block) {
+    throw new Error(`Ineligible deterministic recovery block: ${chapterId}:${blockId}`);
+  }
+  const suffix = chapterId.slice("chapter-".length);
+  const claimId = `claim-${suffix}-extractive`;
+  const reference = {
+    type: "book" as const,
+    chapterId,
+    page: block.page,
+    blockId: block.blockId,
+  };
+  const candidate = ChapterAnalysisSchema.parse({
+    chapterId,
+    title: input.title,
+    importance: {
+      score: input.importance,
+      level: input.importance >= 80 ? "core" : "supporting",
+      reason: input.targetReason,
+    },
+    chapterRole: "evidence",
+    summary: {
+      oneSentence: `确定性恢复保留本章原文：${block.originalText}`,
+      detailed: "本次恢复不扩写模型结论，只保留指定高置信度原文块能够直接支持的内容。",
+    },
+    claims: [{
+      claimId,
+      type: "author_observation",
+      statement: block.originalText,
+      importance: {
+        score: input.importance,
+        level: input.importance >= 80 ? "core" : "supporting",
+        reason: "该陈述直接来自指定的本章原文块。",
+      },
+      authorPosition: "这是作者原文的直接表述，未加入模型推断。",
+      scope: {
+        appliesTo: [block.originalText],
+        doesNotNecessarilyApplyTo: ["原文未明确覆盖的其他时期、地区或群体"],
+      },
+      bookEvidenceRefs: [reference],
+      sourceRefs: [reference],
+      confidence: block.confidence,
+      verificationStatus: "needs_external_check",
+      evidenceSupport: "strong",
+    }],
+    arguments: [],
+    evidence: [{
+      evidenceId: `evidence-${suffix}-extractive`,
+      type: "author_observation",
+      summary: block.originalText,
+      supportsClaimIds: [claimId],
+      strength: block.confidence,
+      sourceRef: reference,
+      originalExcerpt: block.originalText,
+      interpretation: "确定性恢复仅记录原文，不把它冒充外部核验事实。",
+      confidence: block.confidence,
+    }],
+    concepts: [],
+    examples: [],
+    limitations: ["该恢复结果只覆盖指定原文块，不扩展到原文未明确讨论的范围。"],
+    questions: ["该陈述是否需要在后续阶段进行外部核验？"],
+    relationsToOtherChapters: [],
+    quality: {confidence: block.confidence},
+  });
+  const validated = normalizeAndValidate(source, input, candidate);
+  if (validated.blockingIssues.length > 0) {
+    throw new Error(
+      `Deterministic recovery failed for ${chapterId}: ${validated.blockingIssues.join("; ")}`,
+    );
+  }
+  const outputPath = resolve(chaptersDirectory, `${chapterId}.json`);
+  await writeValidatedJson(outputPath, ChapterAnalysisSchema, validated.analysis);
+  await Promise.all([
+    rm(resolve(chaptersDirectory, `${chapterId}.needs-review.json`), {force: true}),
+    rm(resolve(chaptersDirectory, ".cache", `${chapterId}.json`), {force: true}),
+  ]);
+  return validated.analysis;
 };
 
 const readReusable = async (

@@ -9,6 +9,7 @@ import type {
   ChapterDeepReadProvider,
 } from "../src/research/book/chapter-deep-read-provider";
 import {
+  recoverTargetChapterAnalysisFromBlock,
   createOrReuseTargetChapterAnalyses,
   validateChapterAnalysisSet,
 } from "../src/research/book/chapter-deep-read-service";
@@ -124,6 +125,46 @@ class SyntheticProvider implements ChapterDeepReadProvider {
 }
 
 describe("claim-first target chapter service", () => {
+  it("recovers one requested NEEDS_REVIEW chapter from an exact eligible source block without a provider", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const chapterId = "chapter-micro-retrospective";
+    const block = source.pages[0]!.contentBlocks[0]!;
+    await writeFile(
+      join(directory, `${chapterId}.needs-review.json`),
+      JSON.stringify({stale: true}),
+      "utf8",
+    );
+
+    const analysis = await recoverTargetChapterAnalysisFromBlock({
+      source,
+      map,
+      chaptersDirectory: directory,
+      chapterId,
+      blockId: block.blockId,
+    });
+
+    expect(analysis).toMatchObject({
+      chapterId,
+      claims: [{statement: block.originalText, evidenceSupport: "strong"}],
+      evidence: [{originalExcerpt: block.originalText}],
+      quality: {status: "PASS", blockingIssues: []},
+    });
+    expect(analysis.claims[0]!.sourceRefs).toEqual([{
+      type: "book",
+      chapterId,
+      page: block.page,
+      blockId: block.blockId,
+    }]);
+    expect(ChapterAnalysisSchema.parse(JSON.parse(
+      await readFile(join(directory, `${chapterId}.json`), "utf8"),
+    ))).toEqual(analysis);
+    await expect(readFile(join(directory, `${chapterId}.needs-review.json`), "utf8"))
+      .rejects.toMatchObject({code: "ENOENT"});
+  });
+
   it("dynamically processes every phase3B target and persists one Schema-valid JSON each", async () => {
     const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
     temporaryDirectories.push(directory);
