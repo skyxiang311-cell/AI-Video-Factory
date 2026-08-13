@@ -1,4 +1,5 @@
-import {mkdtemp, readFile, rm} from "node:fs/promises";
+import {createHash} from "node:crypto";
+import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {afterEach, describe, expect, it} from "vitest";
@@ -12,6 +13,7 @@ import {
   validateChapterAnalysisSet,
 } from "../src/research/book/chapter-deep-read-service";
 import {ChapterAnalysisSchema, type ChapterAnalysis} from "../src/research/book/knowledge-schema";
+import {ChapterDeepReadOutputError} from "../src/research/book/chapter-deep-read-provider";
 import {BookSourceSchema, type BookSource} from "../src/research/book/source-schema";
 
 const temporaryDirectories: string[] = [];
@@ -64,7 +66,7 @@ const analysisFor = (input: ChapterDeepReadInput): ChapterAnalysis => {
     claims: [{
       claimId,
       type: "mechanism",
-      statement: `作者主张：${input.title}中的机制只在本章界定的条件下成立。`,
+      statement: `作者在本章写道：${first.originalText}`,
       importance: {score: 88, level: "core", reason: "构成本章核心论证。"},
       authorPosition: "这是作者在本章明确提出的观点，不是分析模型自己的事实判断。",
       scope: {
@@ -75,12 +77,13 @@ const analysisFor = (input: ChapterDeepReadInput): ChapterAnalysis => {
       sourceRefs: [reference],
       confidence: 0.92,
       verificationStatus: "not_required",
+      evidenceSupport: "strong",
     }],
     arguments: ["作者先界定问题，再说明机制。"],
     evidence: [{
       evidenceId: `evidence-${suffix}-argument`,
       type: "logical_argument",
-      summary: "本章通过概念与机制之间的推理支持核心 Claim。",
+      summary: first.originalText,
       supportsClaimIds: [claimId],
       strength: 0.72,
       sourceRef: reference,
@@ -90,7 +93,7 @@ const analysisFor = (input: ChapterDeepReadInput): ChapterAnalysis => {
     }, {
       evidenceId: `evidence-${suffix}-observation`,
       type: "author_observation",
-      summary: "作者观察用于说明该机制的适用情境。",
+      summary: first.originalText,
       supportsClaimIds: [claimId],
       strength: 0.55,
       sourceRef: reference,
@@ -205,6 +208,48 @@ describe("claim-first target chapter service", () => {
     expect(result.cacheHits).toEqual({"chapter-micro-retrospective": false});
   });
 
+  it("invalidates a v1 chapter cache after the evidence-quality prompt upgrade", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const provider = new SyntheticProvider();
+
+    await createOrReuseTargetChapterAnalyses({source, map, chaptersDirectory: directory, provider});
+    const cachePath = join(directory, ".cache", "chapter-micro-retrospective.json");
+    const cache = JSON.parse(await readFile(cachePath, "utf8")) as {
+      artifact: {promptVersion: string};
+    };
+    cache.artifact.promptVersion = "claim-first-chapter-v1";
+    await writeFile(cachePath, JSON.stringify(cache), "utf8");
+    await createOrReuseTargetChapterAnalyses({source, map, chaptersDirectory: directory, provider});
+
+    expect(provider.calls).toHaveLength(2);
+  });
+
+  it("invalidates a cache whose persisted artifact only passes after automatic calibration", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const provider = new SyntheticProvider();
+
+    await createOrReuseTargetChapterAnalyses({source, map, chaptersDirectory: directory, provider});
+    const chapterId = "chapter-micro-retrospective";
+    const outputPath = join(directory, `${chapterId}.json`);
+    const cachePath = join(directory, ".cache", `${chapterId}.json`);
+    const output = JSON.parse(await readFile(outputPath, "utf8")) as ChapterAnalysis;
+    output.evidence[0]!.summary = "不匹配原文、但可被自动移除的证据摘要。";
+    const cache = JSON.parse(await readFile(cachePath, "utf8")) as {analysisHash: string};
+    cache.analysisHash = createHash("sha256").update(JSON.stringify(output)).digest("hex");
+    await writeFile(outputPath, JSON.stringify(output), "utf8");
+    await writeFile(cachePath, JSON.stringify(cache), "utf8");
+
+    await createOrReuseTargetChapterAnalyses({source, map, chaptersDirectory: directory, provider});
+
+    expect(provider.calls).toHaveLength(2);
+  });
+
   it("rejects dangling Claim and Evidence references before writing output", async () => {
     const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
     temporaryDirectories.push(directory);
@@ -222,17 +267,19 @@ describe("claim-first target chapter service", () => {
       return analysis;
     };
 
-    await expect(createOrReuseTargetChapterAnalyses({
+    const result = await createOrReuseTargetChapterAnalyses({
       source,
       map,
       chaptersDirectory: directory,
       provider,
-    })).rejects.toThrow("MISSING_BOOK_BLOCK");
+    });
+    expect(result.needsReview).toEqual(["chapter-micro-retrospective"]);
+    expect(result.blockingTraceabilityIssues.join(" ")).toContain("MISSING_BOOK_BLOCK");
     await expect(readFile(join(directory, "chapter-micro-retrospective.json"), "utf8"))
       .rejects.toMatchObject({code: "ENOENT"});
   });
 
-  it("rejects an invalid chapter without making a second model call", async () => {
+  it("feeds concrete Claim-Evidence issues back once and persists the corrected chapter", async () => {
     const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
     temporaryDirectories.push(directory);
     const {source, map} = await loadInputs();
@@ -241,19 +288,116 @@ describe("claim-first target chapter service", () => {
     const feedback: Array<string[] | undefined> = [];
     provider.analyzeChapter = async (input, qualityFeedback) => {
       feedback.push(qualityFeedback);
-      const analysis = analysisFor(input);
-      analysis.claims[0]!.scope.appliesTo = ["适用范围"];
-      return analysis;
+      if (qualityFeedback) return analysisFor(input);
+      const invalid = analysisFor(input);
+      invalid.claims[0]!.statement = "2008年基尼系数达到0.491。";
+      return invalid;
     };
 
-    await expect(createOrReuseTargetChapterAnalyses({
+    const result = await createOrReuseTargetChapterAnalyses({
       source,
       map,
       chaptersDirectory: directory,
       provider,
-    })).rejects.toThrow("scope template");
+    });
 
-    expect(feedback).toEqual([undefined]);
+    expect(feedback).toHaveLength(2);
+    expect(feedback[0]).toBeUndefined();
+    expect(feedback[1]?.join(" ")).toContain("SEVERE_EXCERPT_MISMATCH");
+    expect(result.analyses[0]!.quality).toMatchObject({status: "PASS", blockingIssues: []});
+    expect(result.unsupportedClaimsRemoved).toBeGreaterThanOrEqual(1);
+  });
+
+  it("feeds a malformed provider-output issue back once before accepting a valid repair", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const provider = new SyntheticProvider();
+    const feedback: Array<string[] | undefined> = [];
+    provider.analyzeChapter = async (input, qualityFeedback) => {
+      feedback.push(qualityFeedback);
+      if (!qualityFeedback) {
+        throw new ChapterDeepReadOutputError(["evidence.2.type must use an allowed Evidence type"]);
+      }
+      return analysisFor(input);
+    };
+
+    const result = await createOrReuseTargetChapterAnalyses({
+      source,
+      map,
+      chaptersDirectory: directory,
+      provider,
+    });
+
+    expect(feedback).toHaveLength(2);
+    expect(feedback[1]).toEqual([
+      "PROVIDER_OUTPUT_INVALID: evidence.2.type must use an allowed Evidence type",
+    ]);
+    expect(result.analyses[0]!.quality.status).toBe("PASS");
+  });
+
+  it("counts a causal overclaim corrected by the one allowed model repair", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const provider = new SyntheticProvider();
+    provider.analyzeChapter = async (input, qualityFeedback) => {
+      if (qualityFeedback) return analysisFor(input);
+      const invalid = analysisFor(input);
+      invalid.claims[0]!.statement = `${input.blocks[0]!.originalText}导致本章未讨论的普遍结果。`;
+      return invalid;
+    };
+
+    const result = await createOrReuseTargetChapterAnalyses({
+      source,
+      map,
+      chaptersDirectory: directory,
+      provider,
+    });
+
+    expect(result.causalOverclaimsCorrected).toBe(1);
+    expect(result.blockingTraceabilityIssues).toEqual([]);
+  });
+
+  it("marks a chapter NEEDS_REVIEW after one failed repair and removes stale PASS output", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "chapter-deep-read-"));
+    temporaryDirectories.push(directory);
+    const {source, map} = await loadInputs();
+    map.phase3BTargets = [map.phase3BTargets[0]!];
+    const provider = new SyntheticProvider();
+    provider.analyzeChapter = async (input) => {
+      provider.calls.push(structuredClone(input));
+      const invalid = analysisFor(input);
+      invalid.claims[0]!.statement = "市场机制导致2008年基尼系数达到0.491。";
+      return invalid;
+    };
+
+    const result = await createOrReuseTargetChapterAnalyses({
+      source,
+      map,
+      chaptersDirectory: directory,
+      provider,
+      createdAt: "2026-08-13T00:00:00.000Z",
+    });
+
+    expect(provider.calls).toHaveLength(2);
+    expect(result.analyses).toEqual([]);
+    expect(result.needsReview).toEqual(["chapter-micro-retrospective"]);
+    expect(result.blockingTraceabilityIssues).toEqual(expect.arrayContaining([
+      expect.stringContaining("CAUSAL_OVERCLAIM"),
+      expect.stringContaining("SEVERE_EXCERPT_MISMATCH"),
+    ]));
+    await expect(readFile(join(directory, "chapter-micro-retrospective.json"), "utf8"))
+      .rejects.toMatchObject({code: "ENOENT"});
+    const review = JSON.parse(await readFile(
+      join(directory, "chapter-micro-retrospective.needs-review.json"),
+      "utf8",
+    )) as {status: string; attempts: number; issues: string[]; candidate: ChapterAnalysis};
+    expect(review).toMatchObject({status: "NEEDS_REVIEW", attempts: 2});
+    expect(review.issues).not.toHaveLength(0);
+    expect(review.candidate.quality.status).toBe("NEEDS_REVIEW");
   });
 
   it("flags templated scope, one evidence type, and repeated cross-chapter claims", async () => {

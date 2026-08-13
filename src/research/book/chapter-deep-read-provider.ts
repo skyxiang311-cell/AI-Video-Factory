@@ -1,5 +1,15 @@
 import type {ChapterAnalysis} from "./knowledge-schema";
 
+export class ChapterDeepReadOutputError extends Error {
+  readonly issues: string[];
+
+  constructor(issues: string[]) {
+    super(`Chapter deep-read provider output is invalid: ${issues.join("; ")}`);
+    this.name = "ChapterDeepReadOutputError";
+    this.issues = issues;
+  }
+}
+
 export interface ChapterDeepReadBlock {
   blockId: string;
   page: number;

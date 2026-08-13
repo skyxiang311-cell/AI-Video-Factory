@@ -28,7 +28,7 @@ const analysisFor = (input: ChapterDeepReadInput): ChapterAnalysis => {
     claims: [{
       claimId,
       type: "mechanism",
-      statement: `作者提出${input.title}的独有主张。`,
+      statement: `作者在本章写道：${block.originalText}`,
       importance: {score: 88, level: "core", reason: "核心主张。"},
       authorPosition: "作者明确主张，不是模型判断。",
       scope: {appliesTo: [`${input.title}界定的对象`], doesNotNecessarilyApplyTo: ["未被本章讨论的对象"]},
@@ -36,14 +36,15 @@ const analysisFor = (input: ChapterDeepReadInput): ChapterAnalysis => {
       sourceRefs: [ref],
       confidence: 0.9,
       verificationStatus: "not_required",
+      evidenceSupport: "strong",
     }],
     arguments: ["书内论证。"],
     evidence: [{
-      evidenceId: `evidence-${suffix}-logical`, type: "logical_argument", summary: "书内逻辑。",
+      evidenceId: `evidence-${suffix}-logical`, type: "logical_argument", summary: block.originalText,
       supportsClaimIds: [claimId], strength: 0.7, sourceRef: ref,
       originalExcerpt: block.originalText, interpretation: "逻辑解释。", confidence: block.confidence,
     }, {
-      evidenceId: `evidence-${suffix}-observation`, type: "author_observation", summary: "作者观察。",
+      evidenceId: `evidence-${suffix}-observation`, type: "author_observation", summary: block.originalText,
       supportsClaimIds: [claimId], strength: 0.5, sourceRef: ref,
       originalExcerpt: block.originalText, interpretation: "观察不是外部验证。", confidence: block.confidence,
     }],
@@ -111,6 +112,46 @@ describe("book:chapters CLI", () => {
       claimsPerChapter: {"chapter-feedback-window": 1},
       evidencePerChapter: {"chapter-feedback-window": 2},
       blockingTraceabilityIssues: [],
+      needsReview: [],
+      unsupportedClaimsRemoved: 0,
+      causalOverclaimsCorrected: 0,
+    });
+  });
+
+  it("returns failure and reports NEEDS_REVIEW after one unsuccessful repair", async () => {
+    const source = await loadFixture("sample-book-source.json");
+    const map = await loadFixture("sample-book-map.json") as {
+      phase3BTargets: Array<{chapterId: string}>;
+    };
+    const bookDirectory = resolve("output/review-book/book");
+    await mkdir(bookDirectory, {recursive: true});
+    await writeFile(resolve(bookDirectory, "book-source.json"), JSON.stringify(source), "utf8");
+    await writeFile(resolve(bookDirectory, "book-map.json"), JSON.stringify(map), "utf8");
+    const provider = new Provider();
+    provider.analyzeChapter = async (input) => {
+      provider.calls.push(input.chapterId);
+      const analysis = analysisFor(input);
+      analysis.claims[0]!.statement = "市场机制导致2008年基尼系数达到0.491。";
+      return analysis;
+    };
+    const stdout: string[] = [];
+
+    const exitCode = await runBookChaptersCli({
+      argv: ["review-book"],
+      provider,
+      stdout: (message) => stdout.push(message),
+      stderr: () => undefined,
+      createdAt: "2026-08-13T00:00:00.000Z",
+    });
+
+    expect(exitCode).toBe(1);
+    expect(provider.calls).toHaveLength(2);
+    expect(JSON.parse(stdout[0]!)).toMatchObject({
+      chaptersProcessed: 0,
+      needsReview: [map.phase3BTargets[0]!.chapterId],
+      blockingTraceabilityIssues: expect.arrayContaining([
+        expect.stringContaining("CAUSAL_OVERCLAIM"),
+      ]),
     });
   });
 

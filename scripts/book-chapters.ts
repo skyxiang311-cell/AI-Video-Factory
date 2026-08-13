@@ -54,8 +54,11 @@ export const runBookChaptersCli = async ({
         result.analyses.map((analysis) => [analysis.chapterId, analysis.evidence.length]),
       ),
       blockingTraceabilityIssues: result.blockingTraceabilityIssues,
+      needsReview: result.needsReview,
+      unsupportedClaimsRemoved: result.unsupportedClaimsRemoved,
+      causalOverclaimsCorrected: result.causalOverclaimsCorrected,
     }, null, 2));
-    return 0;
+    return result.needsReview.length === 0 ? 0 : 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     stderr(`Book chapters failed: ${message}`);

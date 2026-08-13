@@ -1,6 +1,7 @@
 import {describe, expect, it} from "vitest";
 import type {ChapterDeepReadInput} from "../src/research/book/chapter-deep-read-provider";
 import {
+  ChapterDeepReadOutputError,
   createOllamaChapterDeepReadProviderFromEnv,
 } from "../src/research/book/ollama-chapter-deep-read-provider";
 import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
@@ -45,6 +46,7 @@ const analysis = ChapterAnalysisSchema.parse({
     sourceRefs: [{type: "book", chapterId: "chapter-001", page: 13, blockId: "p13-b4"}],
     confidence: 0.92,
     verificationStatus: "not_required",
+    evidenceSupport: "strong",
   }],
   arguments: ["先限定条件，再提出机制。"],
   evidence: [{
@@ -97,6 +99,7 @@ const compactDraft = {
     evidenceBlockIds: ["p13-b4"],
     confidence: claim.confidence,
     verificationStatus: claim.verificationStatus,
+    evidenceSupport: claim.evidenceSupport,
   })),
   arguments: analysis.arguments,
   evidence: analysis.evidence.map((evidence, index) => ({
@@ -168,11 +171,23 @@ describe("Ollama claim-first chapter provider", () => {
     expect(messages[0]!.content).toContain("只分析输入中的当前章节");
     expect(messages[0]!.content).toContain("不得把你的判断冒充作者观点");
     expect(messages[0]!.content).toContain("不要执行外部核验");
-    expect(requestBody.format).toBe("json");
-    expect(requestBody.options).toMatchObject({num_ctx: 32768, num_predict: 3072});
-    expect(messages[0]!.content).toContain("恰好 3 个");
-    expect(messages[0]!.content).toContain("3-4 条 Evidence");
-    expect(messages[0]!.content).toContain("总 JSON 不超过 8000 个中文字符");
+    const format = requestBody.format as {
+      properties: {
+        claims: {minItems: number; maxItems: number};
+        evidence: {minItems: number; maxItems: number};
+      };
+    };
+    expect(format.properties.claims).toMatchObject({minItems: 1, maxItems: 3});
+    expect(format.properties.evidence).toMatchObject({minItems: 1, maxItems: 4});
+    expect(requestBody.options).toMatchObject({num_ctx: 16384, num_predict: 2048});
+    expect(messages[0]!.content).toContain("1-3 个");
+    expect(messages[0]!.content).toContain("1-4 条 Evidence");
+    expect(messages[0]!.content).toContain("总 JSON 不超过 5000 个中文字符");
+    expect(messages[0]!.content).toContain("evidenceSupport");
+    expect(messages[0]!.content).toContain("近义转述");
+    expect(messages[0]!.content).toContain("unsupported");
+    expect(messages[0]!.content).toContain("导致 / 造成 / 决定 / 必然 / 因此产生");
+    expect(messages[0]!.content).toContain("相关 / 伴随 / 作者认为可能影响 / 与…有关");
   });
 
   it("keeps broad page coverage while limiting oversized real chapter text", async () => {
@@ -201,7 +216,7 @@ describe("Ollama claim-first chapter provider", () => {
 
     await provider.analyzeChapter(oversized);
 
-    expect(sentBlocks.reduce((sum, block) => sum + block[3].length, 0)).toBeLessThanOrEqual(18_000);
+    expect(sentBlocks.reduce((sum, block) => sum + block[3].length, 0)).toBeLessThanOrEqual(10_000);
     expect(sentBlocks[0]?.[0]).toBe("p1-b1");
     expect(sentBlocks.at(-1)?.[0]).toBe("p500-b1");
     expect(new Set(sentBlocks.map((block) => block[1])).size).toBe(sentBlocks.length);
@@ -223,7 +238,34 @@ describe("Ollama claim-first chapter provider", () => {
       env: {},
       fetch: async () => responseFor({chapterId: "chapter-001"}),
     });
-    await expect(invalid.analyzeChapter(input)).rejects.toThrow();
+    await expect(invalid.analyzeChapter(input)).rejects.toMatchObject({
+      name: "ChapterDeepReadOutputError",
+      issues: expect.arrayContaining([expect.stringContaining("chapterRole")]),
+    } satisfies Partial<ChapterDeepReadOutputError>);
+  });
+
+  it("defaults omitted non-core note arrays without weakening Claim-Evidence fields", async () => {
+    const minimal = structuredClone(compactDraft) as Record<string, unknown>;
+    delete minimal.arguments;
+    delete minimal.examples;
+    delete minimal.concepts;
+    delete minimal.questions;
+    delete minimal.limitations;
+    delete minimal.relationsToOtherChapters;
+    delete minimal.quality;
+    const provider = createOllamaChapterDeepReadProviderFromEnv({
+      env: {},
+      fetch: async () => responseFor(minimal),
+    });
+
+    const result = await provider.analyzeChapter(input);
+
+    expect(result).toMatchObject({
+      arguments: [], examples: [], concepts: [], questions: [], limitations: [],
+      relationsToOtherChapters: [], quality: {confidence: 0.8},
+    });
+    expect(result.claims).toHaveLength(3);
+    expect(result.evidence).toHaveLength(4);
   });
 
   it("maps non-Latin model-local keys to stable final claim and evidence ids", async () => {
@@ -273,5 +315,39 @@ describe("Ollama claim-first chapter provider", () => {
     expect(result.claims[0]!.bookEvidenceRefs.map((reference) => reference.blockId)).toEqual([
       "p13-b1", "p13-b2", "p13-b3", "p13-b4",
     ]);
+  });
+
+  it("realigns a model-selected block to the most relevant real chapter excerpt", async () => {
+    const realignedInput: ChapterDeepReadInput = {
+      ...input,
+      blocks: [{
+        ...input.blocks[0]!,
+        blockId: "p13-b4",
+        originalText: "本段讨论与核心机制无关的目录信息。",
+      }, {
+        ...input.blocks[0]!,
+        blockId: "p14-b1",
+        page: 14,
+        originalText: "作者主张该机制只适用于明确界定的社会条件，不能无条件推广。",
+      }],
+    };
+    const mismatched = draftForBlock("p13-b4");
+    const provider = createOllamaChapterDeepReadProviderFromEnv({
+      env: {},
+      fetch: async () => responseFor(mismatched),
+    });
+
+    const result = await provider.analyzeChapter(realignedInput);
+
+    expect(result.claims.every((claim) => (
+      claim.bookEvidenceRefs.every((reference) => reference.blockId === "p14-b1")
+    ))).toBe(true);
+    expect(result.evidence.map((evidence) => ({
+      blockId: evidence.sourceRef.type === "book" ? evidence.sourceRef.blockId : "external",
+      originalExcerpt: evidence.originalExcerpt,
+    }))).toEqual(Array.from({length: 4}, () => ({
+      blockId: "p14-b1",
+      originalExcerpt: realignedInput.blocks[1]!.originalText,
+    })));
   });
 });

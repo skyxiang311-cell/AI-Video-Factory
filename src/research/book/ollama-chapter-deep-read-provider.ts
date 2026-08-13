@@ -3,9 +3,12 @@ import type {
   ChapterDeepReadInput,
   ChapterDeepReadProvider,
 } from "./chapter-deep-read-provider";
+import {ChapterDeepReadOutputError} from "./chapter-deep-read-provider";
+export {ChapterDeepReadOutputError} from "./chapter-deep-read-provider";
 import {
   ChapterAnalysisSchema,
   ChapterRoleSchema,
+  EvidenceSupportSchema,
   EvidenceTypeSchema,
   VerificationStatusSchema,
   type ChapterAnalysis,
@@ -13,7 +16,7 @@ import {
 
 const OLLAMA_CHAT_URL = "http://127.0.0.1:11434/api/chat";
 const DEFAULT_MODEL = "qwen3:14b";
-const MAX_CHAPTER_TEXT_CHARACTERS = 18_000;
+const MAX_CHAPTER_TEXT_CHARACTERS = 10_000;
 const KeySchema = z.string().trim().min(1).max(80);
 const BlockIdSchema = z.string().regex(/^p\d+-[a-z0-9-]+$/);
 const ConfidenceSchema = z.number().min(0).max(1);
@@ -44,8 +47,9 @@ const CompactChapterDraftSchema = z.object({
     verificationStatus: VerificationStatusSchema.extract([
       "not_required", "needs_external_check",
     ]),
-  })).length(3),
-  arguments: z.array(z.string().min(1).max(180)).max(3),
+    evidenceSupport: EvidenceSupportSchema,
+  })).min(1).max(3),
+  arguments: z.array(z.string().min(1).max(180)).max(3).default([]),
   evidence: z.array(z.object({
     evidenceKey: KeySchema,
     type: EvidenceTypeSchema,
@@ -55,13 +59,13 @@ const CompactChapterDraftSchema = z.object({
     blockId: BlockIdSchema,
     interpretation: z.string().min(1).max(180),
     confidence: ConfidenceSchema,
-  })).min(3).max(4),
-  examples: z.array(z.string().min(1).max(180)).max(3),
-  concepts: z.array(z.string().min(1).max(80)).max(5),
-  questions: z.array(z.string().min(1).max(180)).max(3),
-  limitations: z.array(z.string().min(1).max(180)).min(1).max(3),
-  relationsToOtherChapters: z.array(z.string().min(1).max(180)).max(3),
-  quality: z.object({confidence: ConfidenceSchema}),
+  })).min(1).max(4),
+  examples: z.array(z.string().min(1).max(180)).max(3).default([]),
+  concepts: z.array(z.string().min(1).max(80)).max(5).default([]),
+  questions: z.array(z.string().min(1).max(180)).max(3).default([]),
+  limitations: z.array(z.string().min(1).max(180)).max(3).default([]),
+  relationsToOtherChapters: z.array(z.string().min(1).max(180)).max(3).default([]),
+  quality: z.object({confidence: ConfidenceSchema}).default({confidence: 0.8}),
 }).superRefine((draft, context) => {
   const claimKeys = new Set<string>();
   draft.claims.forEach((claim, index) => {
@@ -96,13 +100,32 @@ const CompactChapterDraftSchema = z.object({
   });
 });
 
+const toOllamaSchema = (schema: z.ZodType): Record<string, unknown> => {
+  const generated = z.toJSONSchema(schema, {target: "draft-7"});
+  const {$schema: _schemaDeclaration, ...result} = generated;
+  const normalizeSchema = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(normalizeSchema);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (typeof record.pattern === "string") record.pattern = record.pattern.replaceAll("\\d", "[0-9]");
+    Object.values(record).forEach(normalizeSchema);
+  };
+  normalizeSchema(result);
+  return result;
+};
+
+const OLLAMA_DRAFT_FORMAT = toOllamaSchema(CompactChapterDraftSchema);
+
 const OUTPUT_TEMPLATE = `严格输出以下 JSON 对象，不要 Markdown，不要改字段名：
 {
   "chapterRole":"foundation|core_argument|evidence|case_study|method|counterargument|application|summary|supplementary",
   "summary":{"oneSentence":"...","detailed":"..."},
-  "claims":[恰好3项，每项为{"claimKey":"英文小写slug","type":"...","statement":"...","importance":{"score":0-100,"level":"...","reason":"..."},"authorPosition":"...","scope":{"appliesTo":["具体范围"],"doesNotNecessarilyApplyTo":["具体边界"]},"evidenceBlockIds":["真实blockId"],"confidence":0-1,"verificationStatus":"not_required或needs_external_check"}],
+  "claims":[1至3项，每项为{"claimKey":"英文小写slug","type":"...","statement":"...","importance":{"score":0-100,"level":"...","reason":"..."},"authorPosition":"...","scope":{"appliesTo":["具体范围"],"doesNotNecessarilyApplyTo":["具体边界"]},"evidenceBlockIds":["真实blockId"],"confidence":0-1,"verificationStatus":"not_required或needs_external_check","evidenceSupport":"strong|partial|weak|unsupported"}],
   "arguments":["..."],
-  "evidence":[3至4项，每项为{"evidenceKey":"英文小写slug","type":"study|statistic|case|anecdote|historical_event|logical_argument|expert_opinion|chart|table|author_observation","summary":"...","supportsClaimKeys":["已有claimKey"],"strength":0-1,"blockId":"真实blockId","interpretation":"...","confidence":0-1}],
+  "evidence":[1至4项，每项为{"evidenceKey":"英文小写slug","type":"study|statistic|case|anecdote|historical_event|logical_argument|expert_opinion|chart|table|author_observation","summary":"...","supportsClaimKeys":["确实被该原文直接支持的已有claimKey"],"strength":0-1,"blockId":"真实blockId","interpretation":"...","confidence":0-1}],
   "examples":["..."],"concepts":["..."],"questions":["..."],"limitations":["..."],"relationsToOtherChapters":["chapter-id 与关系"],"quality":{"confidence":0-1}
 }`;
 
@@ -111,12 +134,19 @@ const INSTRUCTIONS = [
   "所有分析内容统一输出简体中文，原文专有名词可保留。",
   "只能使用 evidenceBlocks 中当前章节的真实原文，不得使用外部知识，不得补充原书没有的事实。",
   "不得把你的判断冒充作者观点：authorPosition 必须区分作者明确主张、作者推断、作者观察与分析者解释。",
-  "提取恰好 3 个有知识价值且彼此不同的核心 Claim；每个 Claim 用 evidenceBlockIds 引用真实 blockId，并保存具体适用范围与边界。",
-  "生成 3-4 条 Evidence；宁可如实使用一种类型，也不得为了多样性伪造案例、统计或研究。",
+  "只提取 1-3 个有知识价值、彼此不同且有直接原文支持的核心 Claim；unsupported Claim 必须删除，不得为了凑数量保留。",
+  "每个 Claim.statement 必须是 1-2 个关联 Evidence blocks 的近义转述，保留原文中的主体、时间、范围与不确定性；禁止跨多个片段拼接成更宽泛结论。",
+  "每个 Claim 判断 evidenceSupport：strong、partial、weak、unsupported。weak 必须缩小 statement 或 scope；partial 必须在 statement/scope 明确限制；最终不得输出 weak 或 unsupported。",
+  "scope.appliesTo 必须只写 Evidence 原文明确覆盖的国家、时期、群体或条件；doesNotNecessarilyApplyTo 必须用‘其他/非/未讨论/不包括’明确边界。原文没有全称范围时禁止写所有、全部、任何、各国、全世界。",
+  "生成 1-4 条 Evidence；宁可如实使用一种类型，也不得为了多样性伪造案例、统计或研究。每个核心 Claim 至少关联一条直接支持它的 Evidence。",
   "Evidence.blockId 必须来自 evidenceBlocks；supportsClaimKeys 必须引用本输出的 claimKey。",
+  "Evidence.summary 只能忠实概括其单个 blockId 的原文；只有该 originalText 在逻辑上确实支持 Claim 时才能写入 supportsClaimKeys，禁止为满足 Schema 强行绑定。",
+  "必须保持原文的否定含义以及因果主体→结果方向；禁止把‘不可以’改成‘可以’，也禁止交换原因和结果。",
+  "若原文没有明确因果证据，statement 禁止使用 导致 / 造成 / 决定 / 必然 / 因此产生；必须降级为 相关 / 伴随 / 作者认为可能影响 / 与…有关。",
+  "数字、年份、比例必须出现在所关联 Evidence.blockId 的 originalText 中；否则删除该 Claim 或改选真正包含该事实的 blockId。",
   "没有外部核验时，事实性 Claim 使用 needs_external_check；作者定义、明确立场或纯逻辑论证可用 not_required；禁止输出 verified。",
   "relationsToOtherChapters 只能根据 chapterCatalog 指明结构关系，不得添加其他章节事实。",
-  "保持高信息密度：总 JSON 不超过 8000 个中文字符；summary.detailed 不超过 400 字，其他说明字段尽量控制在 120 字内。",
+  "保持高信息密度：总 JSON 不超过 5000 个中文字符；summary.detailed 不超过 300 字，其他说明字段尽量控制在 100 字内。",
   "不要执行外部核验，不要开始 Phase 3C，不要生成视频选题、脚本或 Storyboard。",
   OUTPUT_TEMPLATE,
 ].join("\n");
@@ -204,6 +234,34 @@ const compactInput = (input: ChapterDeepReadInput): unknown => ({
   ]),
 });
 
+const normalizeForMatch = (value: string): string => value
+  .normalize("NFKC")
+  .toLowerCase()
+  .replace(/[\s\p{P}\p{S}]/gu, "");
+
+const matchFeatures = (value: string): Set<string> => {
+  const normalized = normalizeForMatch(value);
+  const features = new Set<string>();
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    features.add(normalized.slice(index, index + 2));
+  }
+  return features;
+};
+
+const matchScore = (query: string, originalText: string): number => {
+  const queryNumbers = query.normalize("NFKC").match(/\d+(?:\.\d+)?%?/gu) ?? [];
+  const excerptNumbers = new Set(originalText.normalize("NFKC").match(/\d+(?:\.\d+)?%?/gu) ?? []);
+  if (queryNumbers.some((number) => !excerptNumbers.has(number))) return -1;
+  const queryFeatures = matchFeatures(query);
+  if (queryFeatures.size === 0) return 0;
+  const excerptFeatures = matchFeatures(originalText);
+  let overlap = 0;
+  for (const feature of queryFeatures) {
+    if (excerptFeatures.has(feature)) overlap += 1;
+  }
+  return overlap / queryFeatures.size;
+};
+
 const expandDraft = (input: ChapterDeepReadInput, rawDraft: unknown): ChapterAnalysis => {
   const draft = CompactChapterDraftSchema.parse(rawDraft);
   const blocks = new Map(input.blocks.map((block) => [block.blockId, block]));
@@ -215,10 +273,48 @@ const expandDraft = (input: ChapterDeepReadInput, rawDraft: unknown): ChapterAna
     claim.claimKey,
     `claim-${chapterSuffix}-${stableKey(claim.claimKey, index)}`,
   ]));
+  const claimsByKey = new Map(draft.claims.map((claim) => [claim.claimKey, claim]));
+  const bestBlock = (query: string, fallbackBlockId: string) => {
+    const fallback = blocks.get(fallbackBlockId);
+    if (!fallback) throw new Error(`Unknown chapter evidence block: ${fallbackBlockId}`);
+    return input.blocks.reduce((best, candidate) => (
+      matchScore(query, candidate.originalText) > matchScore(query, best.originalText)
+        ? candidate
+        : best
+    ), fallback);
+  };
   const bookRef = (blockId: string) => {
     const block = blocks.get(blockId);
     if (!block) throw new Error(`Unknown chapter evidence block: ${blockId}`);
     return {type: "book" as const, chapterId: input.chapterId, page: block.page, blockId};
+  };
+  const mappedEvidence = draft.evidence.map((evidence, index) => {
+    const claimText = evidence.supportsClaimKeys
+      .map((key) => claimsByKey.get(key)?.statement ?? "")
+      .join(" ");
+    const declaredBlock = blocks.get(evidence.blockId);
+    if (!declaredBlock) throw new Error(`Unknown chapter evidence block: ${evidence.blockId}`);
+    const block = matchScore(evidence.summary, declaredBlock.originalText) >= 0.28
+      ? declaredBlock
+      : bestBlock(
+        `${evidence.summary} ${evidence.summary} ${evidence.summary} ${claimText} ${evidence.interpretation}`,
+        evidence.blockId,
+      );
+    return {evidence, index, block};
+  });
+  const refsForClaim = (claim: typeof draft.claims[number]) => {
+    const directBlocks = mappedEvidence
+      .filter(({evidence}) => evidence.supportsClaimKeys.includes(claim.claimKey))
+      .map(({block}) => block);
+    const declaredBlocks = claim.evidenceBlockIds
+      .map((blockId) => blocks.get(blockId))
+      .filter((block): block is ChapterDeepReadInput["blocks"][number] => (
+        block !== undefined && matchScore(claim.statement, block.originalText) >= 0.08
+      ));
+    const candidates = [...directBlocks, ...declaredBlocks];
+    if (candidates.length === 0) candidates.push(bestBlock(claim.statement, claim.evidenceBlockIds[0]!));
+    return [...new Map(candidates.map((block) => [block.blockId, block])).values()]
+      .map((block) => bookRef(block.blockId));
   };
   return ChapterAnalysisSchema.parse({
     chapterId: input.chapterId,
@@ -226,29 +322,31 @@ const expandDraft = (input: ChapterDeepReadInput, rawDraft: unknown): ChapterAna
     importance: {score: input.importance, level: "core", reason: input.targetReason},
     chapterRole: draft.chapterRole,
     summary: draft.summary,
-    claims: draft.claims.map((claim) => ({
+    claims: draft.claims.map((claim) => {
+      const references = refsForClaim(claim);
+      return {
       claimId: claimIds.get(claim.claimKey),
       type: claim.type,
       statement: claim.statement,
       importance: claim.importance,
       authorPosition: claim.authorPosition,
       scope: claim.scope,
-      bookEvidenceRefs: claim.evidenceBlockIds.map(bookRef),
-      sourceRefs: claim.evidenceBlockIds.map(bookRef),
+      bookEvidenceRefs: references,
+      sourceRefs: references,
       confidence: claim.confidence,
       verificationStatus: claim.verificationStatus,
-    })),
+      evidenceSupport: claim.evidenceSupport,
+      };
+    }),
     arguments: draft.arguments,
-    evidence: draft.evidence.map((evidence, index) => {
-      const block = blocks.get(evidence.blockId);
-      if (!block) throw new Error(`Unknown chapter evidence block: ${evidence.blockId}`);
+    evidence: mappedEvidence.map(({evidence, index, block}) => {
       return {
         evidenceId: `evidence-${chapterSuffix}-${stableKey(evidence.evidenceKey, index)}`,
         type: evidence.type,
         summary: evidence.summary,
         supportsClaimIds: evidence.supportsClaimKeys.map((key) => claimIds.get(key)!),
         strength: evidence.strength,
-        sourceRef: bookRef(evidence.blockId),
+        sourceRef: bookRef(block.blockId),
         originalExcerpt: block.originalText,
         interpretation: evidence.interpretation,
         confidence: evidence.confidence,
@@ -287,8 +385,8 @@ export class OllamaChapterDeepReadProvider implements ChapterDeepReadProvider {
         model: this.model,
         stream: true,
         think: false,
-        format: "json",
-        options: {num_ctx: 32768, num_predict: 3072, temperature: 0},
+        format: OLLAMA_DRAFT_FORMAT,
+        options: {num_ctx: 16384, num_predict: 2048, temperature: 0},
         messages: [
           {role: "system", content: INSTRUCTIONS + correction},
           {role: "user", content: JSON.stringify(compactInput(input))},
@@ -303,7 +401,14 @@ export class OllamaChapterDeepReadProvider implements ChapterDeepReadProvider {
     }
     const content = body.message?.content;
     if (!content?.trim()) throw new Error("Ollama chapter deep-read response contained no content");
-    return expandDraft(input, JSON.parse(content));
+    try {
+      return expandDraft(input, JSON.parse(content));
+    } catch (error) {
+      const issues = error instanceof z.ZodError
+        ? error.issues.map((item) => `${item.path.join(".") || "output"}: ${item.message}`)
+        : [error instanceof Error ? error.message : String(error)];
+      throw new ChapterDeepReadOutputError(issues);
+    }
   }
 }
 

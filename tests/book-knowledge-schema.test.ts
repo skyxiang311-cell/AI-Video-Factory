@@ -28,6 +28,7 @@ const validClaim = () => ({
   ],
   confidence: 0.92,
   verificationStatus: "not_required",
+  evidenceSupport: "strong",
 });
 
 const validEvidence = () => ({
@@ -79,6 +80,12 @@ describe("book knowledge schemas", () => {
       appliesTo: ["deliberate practice"],
       doesNotNecessarilyApplyTo: ["all forms of repetition"],
     });
+  });
+
+  it("rejects an unknown Claim evidence-support calibration", () => {
+    const claim = {...validClaim(), evidenceSupport: "mostly"};
+
+    expect(ClaimSchema.safeParse(claim).success).toBe(false);
   });
 
   it("rejects a high-importance claim without source references", () => {

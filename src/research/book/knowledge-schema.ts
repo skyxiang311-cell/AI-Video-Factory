@@ -39,6 +39,13 @@ export const VerificationStatusSchema = z.enum([
   "unverified",
 ]);
 
+export const EvidenceSupportSchema = z.enum([
+  "strong",
+  "partial",
+  "weak",
+  "unsupported",
+]);
+
 export const ClaimSchema = z.object({
   claimId: z.string().regex(/^claim-[a-z0-9-]+$/),
   type: z.string().min(1),
@@ -53,6 +60,7 @@ export const ClaimSchema = z.object({
   sourceRefs: z.array(SourceRefSchema),
   confidence: ConfidenceSchema,
   verificationStatus: VerificationStatusSchema,
+  evidenceSupport: EvidenceSupportSchema.optional(),
 }).superRefine((claim, context) => {
   if (claim.importance.score >= 80 && claim.sourceRefs.length === 0) {
     context.addIssue({
@@ -92,7 +100,11 @@ export const ChapterAnalysisSchema = z.object({
   questions: z.array(z.string()),
   limitations: z.array(z.string()),
   relationsToOtherChapters: z.array(z.string()),
-  quality: z.object({confidence: ConfidenceSchema}),
+  quality: z.object({
+    confidence: ConfidenceSchema,
+    status: z.enum(["PASS", "NEEDS_REVIEW"]).optional(),
+    blockingIssues: z.array(z.string().min(1)).optional(),
+  }),
 }).superRefine((chapter, context) => {
   const claimIds = new Set<string>();
   chapter.claims.forEach((claim, index) => {
