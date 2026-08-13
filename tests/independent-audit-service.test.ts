@@ -4,6 +4,7 @@ import {join} from "node:path";
 import {afterEach, describe, expect, it} from "vitest";
 import {BookMapSchema} from "../src/research/book/book-map-schema";
 import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
+import {BookSourceSchema} from "../src/research/book/source-schema";
 import {
   IndependentAuditSchema,
   type IndependentAuditDraft,
@@ -47,6 +48,7 @@ class Provider implements IndependentAuditProvider {
 }
 
 const makeInputs = async () => {
+  const source = BookSourceSchema.parse(await loadFixture("sample-book-source.json"));
   const map = BookMapSchema.parse(await loadFixture("sample-book-map.json"));
   const analysisFixture = await loadFixture("sample-chapter-analysis.json") as Record<string, unknown>;
   const analysis = ChapterAnalysisSchema.parse({
@@ -70,7 +72,7 @@ const makeInputs = async () => {
       {fromClaimId: first!.claimId, toClaimId: second!.claimId, relation: "explains"},
     ],
   });
-  return {map, analyses: [analysis], deepReads: [], synthesis, claimId: first!.claimId};
+  return {source, map, analyses: [analysis], deepReads: [], synthesis, claimId: first!.claimId};
 };
 
 describe("independent audit service", () => {
@@ -132,5 +134,91 @@ describe("independent audit service", () => {
       provider: new Provider(output),
     });
     expect(result.audit.blockingIssues[0]!.artifact).toBe("chapters/chapter-feedback-window.json");
+  });
+
+  it("suppresses universality and causal-proof false positives for deterministically validated extractive observations", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "book-audit-"));
+    temporaryDirectories.push(directory);
+    const inputs = await makeInputs();
+    const analysis = structuredClone(inputs.analyses[0]!);
+    const sourceBlock = inputs.source.pages[0]!.contentBlocks.find((block) => (
+      block.blockId === "p1-bmicro-retrospective"
+    ))!;
+    const claim = analysis.claims[0]!;
+    claim.claimId = "claim-micro-retrospective-extractive";
+    claim.type = "author_observation";
+    claim.statement = sourceBlock.originalText;
+    claim.evidenceSupport = "strong";
+    claim.scope.appliesTo = [sourceBlock.originalText];
+    claim.scope.doesNotNecessarilyApplyTo = ["原文未明确覆盖的其他时期、地区或群体"];
+    analysis.evidence = [{
+      ...analysis.evidence[0]!,
+      supportsClaimIds: [claim.claimId],
+      summary: sourceBlock.originalText,
+      originalExcerpt: sourceBlock.originalText,
+    }];
+    analysis.claims = [claim, analysis.claims[1]!];
+    analysis.evidence.push(inputs.analyses[0]!.evidence[1]!);
+    inputs.synthesis = JSON.parse(
+      JSON.stringify(inputs.synthesis).replaceAll(inputs.claimId, claim.claimId),
+    );
+    const output = draft(claim.claimId);
+    output.blockingIssues = [{
+      code: "FALSE_UNIVERSALITY_BLOCK",
+      artifact: "chapters/chapter-micro-retrospective.json",
+      claimIds: [claim.claimId],
+      message: "没有解释因果，也没有外部数据证明准确性或普遍性。",
+    }];
+    output.requiredRepairs = [{
+      code: "FALSE_UNIVERSALITY_REPAIR",
+      artifact: "chapters/chapter-micro-retrospective.json",
+      claimIds: [claim.claimId],
+      action: "补充原文不存在的因果或普遍性证据。",
+    }];
+
+    const result = await createOrReuseIndependentAudit({
+      ...inputs,
+      analyses: [analysis],
+      outputPath: join(directory, "audit.json"),
+      cachePath: join(directory, ".cache", "audit.json"),
+      provider: new Provider(output),
+    });
+
+    expect(result.audit.blockingIssues).toEqual([]);
+    expect(result.audit.requiredRepairs).toEqual([]);
+    expect(result.audit.status).toBe("PASS");
+    expect(result.audit.videoReady).toBe(true);
+  });
+
+  it("deterministically blocks an extractive Claim that exceeds its real source block", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "book-audit-"));
+    temporaryDirectories.push(directory);
+    const inputs = await makeInputs();
+    const analysis = structuredClone(inputs.analyses[0]!);
+    const claim = analysis.claims[0]!;
+    claim.claimId = "claim-micro-retrospective-extractive";
+    claim.type = "author_observation";
+    claim.statement = `${analysis.evidence[0]!.originalExcerpt} 因而必然适用于所有社会。`;
+    claim.evidenceSupport = "strong";
+    claim.scope.doesNotNecessarilyApplyTo = ["原文未明确覆盖的其他时期、地区或群体"];
+    analysis.evidence[0]!.supportsClaimIds = [claim.claimId];
+    analysis.claims = [claim, analysis.claims[1]!];
+    inputs.synthesis = JSON.parse(
+      JSON.stringify(inputs.synthesis).replaceAll(inputs.claimId, claim.claimId),
+    );
+    const output = draft(claim.claimId);
+
+    const result = await createOrReuseIndependentAudit({
+      ...inputs,
+      analyses: [analysis],
+      outputPath: join(directory, "audit.json"),
+      cachePath: join(directory, ".cache", "audit.json"),
+      provider: new Provider(output),
+    });
+
+    expect(result.audit.status).toBe("BLOCKED");
+    expect(result.audit.blockingIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({code: "INVALID_EXTRACTIVE_CLAIM", claimIds: [claim.claimId]}),
+    ]));
   });
 });

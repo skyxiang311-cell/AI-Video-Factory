@@ -9,6 +9,7 @@ import {InterrogativeDeepReadSchema} from "../src/research/book/interrogative-de
 import {ChapterAnalysisSchema} from "../src/research/book/knowledge-schema";
 import {createOllamaIndependentAuditProviderFromEnv} from "../src/research/book/ollama-independent-audit-provider";
 import {WholeBookArgumentSynthesisSchema} from "../src/research/book/whole-book-argument-synthesis-schema";
+import {BookSourceSchema} from "../src/research/book/source-schema";
 
 interface Options {
   argv?: string[];
@@ -31,7 +32,8 @@ export const runBookAuditCli = async ({
     if (argv.length !== 1 || !argv[0]) throw new Error("Usage: npm run book:audit -- <job-id>");
     const jobId = argv[0];
     const paths = getBookArtifactPaths(jobId);
-    const [map, synthesis, chapterFiles, deepReadFiles] = await Promise.all([
+    const [source, map, synthesis, chapterFiles, deepReadFiles] = await Promise.all([
+      readValidatedJson(paths.source, BookSourceSchema),
       readValidatedJson(paths.map, BookMapSchema),
       readValidatedJson(paths.synthesis, WholeBookArgumentSynthesisSchema),
       readdir(paths.chaptersDirectory),
@@ -47,6 +49,7 @@ export const runBookAuditCli = async ({
     ]);
     const selectedProvider = provider ?? createOllamaIndependentAuditProviderFromEnv();
     const result = await createOrReuseIndependentAudit({
+      source,
       map,
       analyses,
       deepReads,

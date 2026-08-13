@@ -18,6 +18,7 @@ export interface BookArtifactPaths {
   verification: string;
   angles: string;
   selectedAngle: string;
+  script: string;
   analysis: string;
   chapter: (chapterId: string) => string;
 }
@@ -40,6 +41,7 @@ export const getBookArtifactPaths = (jobId: string): BookArtifactPaths => {
     verification: resolve(directory, "verification.json"),
     angles: resolve(directory, "video-angles.json"),
     selectedAngle: resolve(directory, "selected-angle.json"),
+    script: resolve(directory, "..", "script.json"),
     analysis: resolve(directory, "book-analysis.json"),
     chapter: (chapterId: string): string => {
       assertSafePathSegment(chapterId, "chapter id");

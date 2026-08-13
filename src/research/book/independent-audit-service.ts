@@ -14,12 +14,13 @@ import {
 } from "./independent-audit-schema";
 import type {IndependentAuditInput, IndependentAuditProvider} from "./independent-audit-provider";
 import {ChapterAnalysisSchema, type ChapterAnalysis} from "./knowledge-schema";
+import {BookSourceSchema, type BookSource} from "./source-schema";
 import {
   WholeBookArgumentSynthesisSchema,
   type WholeBookArgumentSynthesis,
 } from "./whole-book-argument-synthesis-schema";
 
-export const INDEPENDENT_AUDIT_PROMPT_VERSION = "independent-auditor-v2-internal-evidence";
+export const INDEPENDENT_AUDIT_PROMPT_VERSION = "independent-auditor-v3-extractive-preaudit";
 export const INDEPENDENT_AUDIT_SCHEMA_VERSION = "1.0.0";
 
 const CacheSchema = z.object({
@@ -29,6 +30,7 @@ const CacheSchema = z.object({
 });
 
 interface CreateOptions {
+  source: BookSource;
   map: BookMap;
   analyses: ChapterAnalysis[];
   deepReads: InterrogativeDeepRead[];
@@ -49,24 +51,73 @@ const bookRefs = (refs: readonly {type: string}[]): BookSourceRef[] => refs.filt
   (ref): ref is BookSourceRef => ref.type === "book",
 );
 
+const refKey = (ref: Pick<BookSourceRef, "chapterId" | "page" | "blockId">): string => (
+  `${ref.chapterId}:${ref.page}:${ref.blockId}`
+);
+
+const normalizeText = (value: string): string => value
+  .normalize("NFKC")
+  .toLowerCase()
+  .replace(/[\s\p{P}\p{S}]/gu, "");
+
+const explicitScopeBoundary = /(原文未明确|其他时期|其他地区|其他群体|不外推|不适用|未覆盖|之外)/u;
+
+const validateExtractiveClaims = (
+  source: BookSource,
+  chapters: IndependentAuditInput["chapters"],
+): Pick<IndependentAuditInput, "validatedExtractiveClaimIds" | "extractivePreAuditIssues"> => {
+  const sourceBlocks = new Map(source.pages.flatMap((page) => page.contentBlocks.map((block) => (
+    [refKey(block), block.originalText] as const
+  ))));
+  const validatedExtractiveClaimIds: string[] = [];
+  const extractivePreAuditIssues: IndependentAuditInput["extractivePreAuditIssues"] = [];
+  for (const chapter of chapters) {
+    for (const claim of chapter.claims.filter((item) => item.claimId.endsWith("-extractive"))) {
+      const reasons: string[] = [];
+      if (claim.type !== "author_observation") reasons.push("type must be author_observation");
+      if (claim.evidenceSupport !== "strong") reasons.push("evidenceSupport must be strong");
+      const directEvidence = chapter.evidence.filter((item) => item.supportsClaimIds.includes(claim.claimId));
+      if (directEvidence.length === 0) reasons.push("direct Evidence is missing");
+      const matchingEvidence = directEvidence.filter((item) => {
+        const evidenceRef = item.sourceRef;
+        if (!evidenceRef) return false;
+        const sourceText = sourceBlocks.get(refKey(evidenceRef));
+        return sourceText !== undefined
+          && normalizeText(sourceText) === normalizeText(item.originalExcerpt)
+          && normalizeText(claim.statement) === normalizeText(item.originalExcerpt)
+          && claim.sourceRefs.some((claimRef) => refKey(claimRef) === refKey(evidenceRef));
+      });
+      if (matchingEvidence.length === 0) {
+        reasons.push("statement/excerpt/sourceRef does not directly match a real book block");
+      }
+      if (!claim.scope.appliesTo.some((scope) => normalizeText(scope) === normalizeText(claim.statement))) {
+        reasons.push("appliesTo exceeds or does not directly match the source statement");
+      }
+      if (!claim.scope.doesNotNecessarilyApplyTo.some((scope) => explicitScopeBoundary.test(scope))) {
+        reasons.push("doesNotNecessarilyApplyTo lacks an explicit non-generalization boundary");
+      }
+      if (reasons.length === 0) {
+        validatedExtractiveClaimIds.push(claim.claimId);
+      } else {
+        extractivePreAuditIssues.push({
+          claimId: claim.claimId,
+          artifact: `chapters/${chapter.chapterId}.json`,
+          reasons,
+        });
+      }
+    }
+  }
+  return {validatedExtractiveClaimIds, extractivePreAuditIssues};
+};
+
 const buildInput = (
+  source: BookSource,
   map: BookMap,
   analyses: readonly ChapterAnalysis[],
   deepReads: readonly InterrogativeDeepRead[],
   synthesis: WholeBookArgumentSynthesis,
-): IndependentAuditInput => ({
-  map: {
-    chapterCount: map.chapters.length,
-    excludedLowConfidencePages: map.excludedLowConfidencePages.map((item) => item.page),
-    chapters: map.chapters.map((chapter) => ({
-      chapterId: chapter.chapterId,
-      title: chapter.title,
-      importance: chapter.importance,
-      analysisStatus: chapter.analysisStatus,
-      sourceRefs: chapter.sourceRefs,
-    })),
-  },
-  chapters: analyses.filter((analysis) => (
+): IndependentAuditInput => {
+  const chapters: IndependentAuditInput["chapters"] = analyses.filter((analysis) => (
     analysis.quality.status === "PASS" && (analysis.quality.blockingIssues?.length ?? 0) === 0
   )).map((analysis) => ({
     chapterId: analysis.chapterId,
@@ -75,6 +126,7 @@ const buildInput = (
     summary: analysis.summary.oneSentence,
     claims: analysis.claims.map((claim) => ({
       claimId: claim.claimId,
+      type: claim.type,
       statement: claim.statement,
       authorPosition: claim.authorPosition,
       scope: claim.scope,
@@ -91,10 +143,25 @@ const buildInput = (
       originalExcerpt: evidence.originalExcerpt,
     })),
     limitations: analysis.limitations,
-  })),
+  }));
+  return {
+  ...validateExtractiveClaims(source, chapters),
+  map: {
+    chapterCount: map.chapters.length,
+    excludedLowConfidencePages: map.excludedLowConfidencePages.map((item) => item.page),
+    chapters: map.chapters.map((chapter) => ({
+      chapterId: chapter.chapterId,
+      title: chapter.title,
+      importance: chapter.importance,
+      analysisStatus: chapter.analysisStatus,
+      sourceRefs: chapter.sourceRefs,
+    })),
+  },
+  chapters,
   deepReads: [...deepReads],
   synthesis,
-});
+  };
+};
 
 const synthesisClaimIds = (synthesis: WholeBookArgumentSynthesis): string[] => [
   ...synthesis.coreThesis.flatMap((item) => item.supportingClaimIds),
@@ -133,9 +200,13 @@ const deterministicFindings = (input: IndependentAuditInput, draft: IndependentA
   const claimChapters = new Map(input.chapters.flatMap((chapter) => chapter.claims.map((claim) => (
     [claim.claimId, chapter.chapterId] as const
   ))));
+  const protectedExtractiveClaims = new Set(input.validatedExtractiveClaimIds);
+  const keepModelFinding = (claimIds: readonly string[]): boolean => (
+    claimIds.length === 0 || !claimIds.every((claimId) => protectedExtractiveClaims.has(claimId))
+  );
   const normalizedDraft = {
     ...draft,
-    blockingIssues: draft.blockingIssues.map((issue) => ({
+    blockingIssues: draft.blockingIssues.filter((issue) => keepModelFinding(issue.claimIds)).map((issue) => ({
       ...issue,
       artifact: concreteArtifact(issue.artifact, issue.claimIds, claimChapters),
     })),
@@ -143,7 +214,7 @@ const deterministicFindings = (input: IndependentAuditInput, draft: IndependentA
       ...issue,
       artifact: concreteArtifact(issue.artifact, issue.claimIds, claimChapters),
     })),
-    requiredRepairs: draft.requiredRepairs.map((repair) => ({
+    requiredRepairs: draft.requiredRepairs.filter((repair) => keepModelFinding(repair.claimIds)).map((repair) => ({
       ...repair,
       artifact: concreteArtifact(repair.artifact, repair.claimIds, claimChapters),
     })),
@@ -162,6 +233,20 @@ const deterministicFindings = (input: IndependentAuditInput, draft: IndependentA
   ].filter((claimId) => !knownClaims.has(claimId)))];
   const blockingIssues: AuditFinding[] = [...normalizedDraft.blockingIssues];
   const requiredRepairs: AuditRepair[] = [...normalizedDraft.requiredRepairs];
+  for (const extractiveIssue of input.extractivePreAuditIssues) {
+    blockingIssues.push({
+      code: "INVALID_EXTRACTIVE_CLAIM",
+      artifact: extractiveIssue.artifact,
+      claimIds: [extractiveIssue.claimId],
+      message: `Extractive Claim deterministic pre-audit failed: ${extractiveIssue.reasons.join("; ")}`,
+    });
+    requiredRepairs.push({
+      code: "INVALID_EXTRACTIVE_CLAIM",
+      artifact: extractiveIssue.artifact,
+      claimIds: [extractiveIssue.claimId],
+      action: "Restore exact source-block wording, real book sourceRef, direct excerpt match, and explicit non-generalization scope.",
+    });
+  }
   if (dangling.length > 0) {
     blockingIssues.push({
       code: "DANGLING_CLAIM_REF",
@@ -259,6 +344,7 @@ const readReusable = async (
 };
 
 export const createOrReuseIndependentAudit = async ({
+  source: rawSource,
   map: rawMap,
   analyses: rawAnalyses,
   deepReads: rawDeepReads,
@@ -268,11 +354,12 @@ export const createOrReuseIndependentAudit = async ({
   provider,
   createdAt,
 }: CreateOptions): Promise<IndependentAuditResult> => {
+  const source = BookSourceSchema.parse(rawSource);
   const map = BookMapSchema.parse(rawMap);
   const analyses = rawAnalyses.map((analysis) => ChapterAnalysisSchema.parse(analysis));
   const deepReads = rawDeepReads.map((deepRead) => InterrogativeDeepReadSchema.parse(deepRead));
   const synthesis = WholeBookArgumentSynthesisSchema.parse(rawSynthesis);
-  const input = buildInput(map, analyses, deepReads, synthesis);
+  const input = buildInput(source, map, analyses, deepReads, synthesis);
   const reusable = await readReusable(input, outputPath, cachePath, provider);
   if (reusable) return {audit: reusable, cacheHit: true};
   const audit = finalize(await provider.audit(input), input);

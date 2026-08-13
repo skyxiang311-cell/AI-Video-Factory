@@ -10,3 +10,5 @@ export * from "./traceability";
 export * from "./interrogative-deep-read-schema";
 export * from "./whole-book-argument-synthesis-schema";
 export * from "./independent-audit-schema";
+export * from "./book-video-angle-schema";
+export * from "./book-script-schema";

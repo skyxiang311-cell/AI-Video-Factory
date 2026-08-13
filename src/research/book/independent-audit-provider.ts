@@ -4,6 +4,12 @@ import type {IndependentAuditDraft} from "./independent-audit-schema";
 import type {WholeBookArgumentSynthesis} from "./whole-book-argument-synthesis-schema";
 
 export interface IndependentAuditInput {
+  validatedExtractiveClaimIds: string[];
+  extractivePreAuditIssues: Array<{
+    claimId: string;
+    artifact: string;
+    reasons: string[];
+  }>;
   map: {
     chapterCount: number;
     excludedLowConfidencePages: number[];
@@ -22,6 +28,7 @@ export interface IndependentAuditInput {
     summary: string;
     claims: Array<{
       claimId: string;
+      type: string;
       statement: string;
       authorPosition: string;
       scope: {appliesTo: string[]; doesNotNecessarilyApplyTo: string[]};

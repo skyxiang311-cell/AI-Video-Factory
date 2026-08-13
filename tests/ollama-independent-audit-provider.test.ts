@@ -41,5 +41,7 @@ describe("Ollama independent audit provider", () => {
     expect(system).toContain("不得补充来源中不存在的新事实");
     expect(system).toContain("缺少外部数据本身不得作为 blocking issue");
     expect(system).toContain("定义或作者判断已由原文直接支持且 scope 已明确收窄");
+    expect(system).toContain("validatedExtractiveClaimIds");
+    expect(system).toContain("不得要求 extractive author_observation 补充原文不存在的因果或普遍性证据");
   });
 });
