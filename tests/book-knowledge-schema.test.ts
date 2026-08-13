@@ -89,6 +89,21 @@ describe("book knowledge schemas", () => {
     expect(ClaimSchema.safeParse(claim).success).toBe(false);
   });
 
+  it("rejects a claim with empty scope boundaries", () => {
+    const claim = validClaim();
+    claim.scope.appliesTo = [];
+    claim.scope.doesNotNecessarilyApplyTo = [];
+
+    expect(ClaimSchema.safeParse(claim).success).toBe(false);
+  });
+
+  it("rejects a claim without book evidence references", () => {
+    const claim = validClaim();
+    claim.bookEvidenceRefs = [];
+
+    expect(ClaimSchema.safeParse(claim).success).toBe(false);
+  });
+
   it("parses evidence that links to a claim and book source", () => {
     const evidence = EvidenceSchema.parse(validEvidence());
 

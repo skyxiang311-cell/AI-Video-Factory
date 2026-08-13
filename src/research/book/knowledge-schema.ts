@@ -46,10 +46,10 @@ export const ClaimSchema = z.object({
   importance: ImportanceSchema,
   authorPosition: z.string().min(1),
   scope: z.object({
-    appliesTo: z.array(z.string().min(1)),
-    doesNotNecessarilyApplyTo: z.array(z.string().min(1)),
+    appliesTo: z.array(z.string().min(1)).min(1),
+    doesNotNecessarilyApplyTo: z.array(z.string().min(1)).min(1),
   }),
-  bookEvidenceRefs: z.array(BookSourceRefSchema),
+  bookEvidenceRefs: z.array(BookSourceRefSchema).min(1),
   sourceRefs: z.array(SourceRefSchema),
   confidence: ConfidenceSchema,
   verificationStatus: VerificationStatusSchema,
