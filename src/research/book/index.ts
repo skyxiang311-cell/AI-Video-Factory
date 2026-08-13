@@ -8,3 +8,4 @@ export * from "./book-analysis-schema";
 export * from "./quality-gate";
 export * from "./traceability";
 export * from "./interrogative-deep-read-schema";
+export * from "./whole-book-argument-synthesis-schema";
