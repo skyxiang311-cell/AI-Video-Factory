@@ -19,7 +19,7 @@ import {
   type WholeBookArgumentSynthesis,
 } from "./whole-book-argument-synthesis-schema";
 
-export const INDEPENDENT_AUDIT_PROMPT_VERSION = "independent-auditor-v1";
+export const INDEPENDENT_AUDIT_PROMPT_VERSION = "independent-auditor-v2-internal-evidence";
 export const INDEPENDENT_AUDIT_SCHEMA_VERSION = "1.0.0";
 
 const CacheSchema = z.object({

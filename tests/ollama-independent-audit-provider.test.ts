@@ -39,5 +39,7 @@ describe("Ollama independent audit provider", () => {
     expect(system).toContain("只调用一次");
     expect(system).toContain("Video Readiness");
     expect(system).toContain("不得补充来源中不存在的新事实");
+    expect(system).toContain("缺少外部数据本身不得作为 blocking issue");
+    expect(system).toContain("定义或作者判断已由原文直接支持且 scope 已明确收窄");
   });
 });

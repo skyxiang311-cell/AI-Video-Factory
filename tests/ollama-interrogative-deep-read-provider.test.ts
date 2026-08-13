@@ -109,12 +109,13 @@ describe("Ollama interrogative deep-read provider", () => {
     expect(requests[0]!.url).toBe("http://127.0.0.1:11434/api/chat");
     expect(requests[0]!.body).toMatchObject({
       model: "qwen3:14b", stream: true, think: false,
-      options: {temperature: 0},
+      options: {temperature: 0, num_predict: 6144},
     });
     const messages = requests[0]!.body!.messages as Array<{role: string; content: string}>;
     expect(messages[0]!.content).toContain("质疑式二读");
     expect(messages[0]!.content).toContain("不使用外部搜索");
     expect(messages[0]!.content).toContain("不做 External Verification");
+    expect(messages[0]!.content).toContain("relatedChapterId 只能使用 comparisonChapters 中实际提供的 chapterId");
     expect(messages[1]!.content).toContain("claim-001-definition");
     expect(requests[0]!.body!.format).toMatchObject({
       type: "object",

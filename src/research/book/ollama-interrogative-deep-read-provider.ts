@@ -29,6 +29,7 @@ const INSTRUCTIONS = [
   "发现 Phase 3B Claim 过度概括时生成 revisedClaims，但不得篡改 originalClaims。",
   "检查时间、地区、样本、群体和条件限制；需要时生成 scopeCorrections。",
   "检查其他可能解释、隐藏假设以及与 comparisonChapters 的 tension 或 contradiction。",
+  "contradictions 和 relationsToOtherChapters 的 relatedChapterId 只能使用 comparisonChapters 中实际提供的 chapterId，不得引用目录中的其他章节。",
   "每项判断必须引用输入中真实的 chapterId/page/blockId；禁止编造引用。",
   "低置信度内容不会进入输入，不得自行补回。",
   "不使用外部搜索，不做 External Verification，不生成视频、脚本或 Phase 3B 内容。",
@@ -135,7 +136,7 @@ export class OllamaInterrogativeDeepReadProvider implements InterrogativeDeepRea
         stream: true,
         think: false,
         format: OLLAMA_FORMAT,
-        options: {num_ctx: 16384, num_predict: 3072, temperature: 0},
+        options: {num_ctx: 16384, num_predict: 6144, temperature: 0},
         messages: [
           {role: "system", content: INSTRUCTIONS},
           {role: "user", content: JSON.stringify(compactInput(input))},
