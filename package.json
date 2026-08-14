@@ -27,6 +27,8 @@
     ,"book:voice": "tsx scripts/book-voice.ts"
     ,"book:subtitles": "tsx scripts/book-subtitles.ts"
     ,"book:render": "tsx scripts/book-render.ts"
+    ,"book:comic-storyboard": "tsx scripts/book-comic-storyboard.ts"
+    ,"book:comic-render": "tsx scripts/book-comic-render.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
