@@ -47,6 +47,7 @@ export const runBookRenderCli = async (argv = process.argv.slice(2)): Promise<vo
     voiceDurationMs: verification.voice.durationMs,
     scenes: verification.storyboard.scenes.length,
     subtitles: verification.storyboard.captions.length,
+    longestStaticVisualMs: verification.longestStaticVisualMs,
     output: videoPath,
   }));
 };

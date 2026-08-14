@@ -11,6 +11,7 @@ const migrateScene = (scene: Storyboard["scenes"][number]): VisualScene => {
     onScreenText: scene.onScreenText,
     visualIntent: scene.visualIntent,
     assetRefs: scene.assetRefs,
+    claimIds: [] as string[],
     emphasis: scene.emphasis,
     contentFlags: scene.contentFlags,
     transition: scene.transition,

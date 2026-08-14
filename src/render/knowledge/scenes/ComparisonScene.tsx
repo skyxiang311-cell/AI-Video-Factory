@@ -1,4 +1,5 @@
-import {Easing, interpolate, useCurrentFrame} from "remotion";
+import {Easing, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {buildMeaningfulBeatFrames} from "../visual-beats";
 import {Icon} from "../components/Icon";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
@@ -6,6 +7,8 @@ import type {VisualSceneProps} from "./types";
 
 export const ComparisonScene = ({branding, logicalDurationInFrames, scene, sceneCount, sceneIndex}: VisualSceneProps<"comparison">) => {
   const frame = Math.min(useCurrentFrame(), logicalDurationInFrames - 1);
+  const {fps} = useVideoConfig();
+  const beats = buildMeaningfulBeatFrames(logicalDurationInFrames, fps, 4);
   const {accent, left, mode, right, title, tone} = scene.visualData;
   const accentColor = resolveAccent(accent);
   const colors = resolveCanvasColors(tone);
@@ -16,7 +19,8 @@ export const ComparisonScene = ({branding, logicalDurationInFrames, scene, scene
       <div style={{fontSize: 64, fontWeight: 850, letterSpacing: -3, marginBottom: 50}}>{title}</div>
       <div style={{display: "grid", gap: 20, gridTemplateColumns: "1fr 1fr", position: "relative"}}>
         {sides.map((side, index) => {
-          const reveal = interpolate(frame, [4 + index * 8, 20 + index * 8], [0, 1], {
+          const revealAt = beats[index + 1]!;
+          const reveal = interpolate(frame, [revealAt - 6, revealAt + 8], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -40,7 +44,7 @@ export const ComparisonScene = ({branding, logicalDurationInFrames, scene, scene
             </div>
           );
         })}
-        <div style={{alignItems: "center", backgroundColor: colors.background, border: `2px solid ${accentColor}`, borderRadius: 999, color: accentColor, display: "flex", fontSize: 28, fontWeight: 900, height: 70, justifyContent: "center", left: "50%", position: "absolute", top: 230, translate: "-50% 0px", width: 70}}>VS</div>
+        <div style={{alignItems: "center", backgroundColor: colors.background, border: `2px solid ${accentColor}`, borderRadius: 999, color: accentColor, display: "flex", fontSize: 28, fontWeight: 900, height: 70, justifyContent: "center", left: "50%", opacity: interpolate(frame, [beats[3]! - 5, beats[3]! + 5], [0, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}), position: "absolute", scale: interpolate(frame, [beats[3]! - 5, beats[3]! + 5], [0.7, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp", output: "perceptual-scale"}), top: 230, translate: "-50% 0px", width: 70}}>VS</div>
       </div>
     </SceneCanvas>
   );

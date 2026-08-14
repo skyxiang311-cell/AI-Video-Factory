@@ -158,6 +158,7 @@ const VisualSceneBaseSchema = z.object({
   onScreenText: z.array(z.string().min(1).max(30)).min(1).max(6),
   visualIntent: z.string().min(1),
   assetRefs: z.array(z.string()),
+  claimIds: z.array(z.string().regex(/^claim-[a-z0-9-]+$/)).default([]),
   sourceRefs: z.array(z.object({
     type: z.literal("book"),
     chapterId: z.string().regex(/^chapter-[a-z0-9-]+$/),

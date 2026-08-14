@@ -1,6 +1,6 @@
 import type {VisualStoryboard} from "../storyboard/visual-schema";
 import {normalizeSpeechText, type NormalizedSpeech} from "./normalize-speech";
-import {resolvePauseMs, type PauseKind} from "./pause-policy";
+import {resolveBookPauseMs, resolvePauseMs, type PauseKind} from "./pause-policy";
 import type {VoicePresetName} from "../voice/voice-presets";
 
 export type NarrationPart = NormalizedSpeech & {sceneId: string};
@@ -32,7 +32,9 @@ export const buildNarrationPlan = (storyboard: VisualStoryboard): NarrationPlan 
       parts,
       text: parts.map((part) => part.text).join(""),
       pauseAfter: block.pauseAfter,
-      pauseAfterMs: resolvePauseMs(block.pauseAfter),
+      pauseAfterMs: storyboard.profile === "book-deep-reading"
+        ? resolveBookPauseMs(block.pauseAfter)
+        : resolvePauseMs(block.pauseAfter),
     };
   });
   if (seen.size !== storyboard.scenes.length) {

@@ -1,4 +1,5 @@
-import {Easing, interpolate, useCurrentFrame} from "remotion";
+import {Easing, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {buildMeaningfulBeatFrames} from "../visual-beats";
 import {Icon} from "../components/Icon";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
@@ -7,6 +8,8 @@ import type {VisualSceneProps} from "./types";
 
 export const DiagramScene = ({branding, logicalDurationInFrames, scene, sceneCount, sceneIndex}: VisualSceneProps<"diagram">) => {
   const frame = Math.min(useCurrentFrame(), logicalDurationInFrames - 1);
+  const {fps} = useVideoConfig();
+  const beats = buildMeaningfulBeatFrames(logicalDurationInFrames, fps, 4);
   const {accent, edges, layout, nodes, title, tone} = scene.visualData;
   const accentColor = resolveAccent(accent);
   const colors = resolveCanvasColors(tone);
@@ -21,7 +24,8 @@ export const DiagramScene = ({branding, logicalDurationInFrames, scene, sceneCou
           {edges.map((edge, index) => {
             const from = nodeById.get(edge.from)!;
             const to = nodeById.get(edge.to)!;
-            const progress = interpolate(frame, [15 + index * 8, 34 + index * 8], [0, 1], {
+            const revealAt = beats[Math.min(index + 2, beats.length - 1)]!;
+            const progress = interpolate(frame, [revealAt - 6, revealAt + 10], [0, 1], {
               easing: Easing.bezier(0.16, 1, 0.3, 1),
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -33,7 +37,8 @@ export const DiagramScene = ({branding, logicalDurationInFrames, scene, sceneCou
         </svg>
         {nodes.map((node, index) => {
           const position = positions[index]!;
-          const reveal = interpolate(frame, [4 + index * 8, 18 + index * 8], [0, 1], {
+          const revealAt = beats[Math.min(index + 1, beats.length - 1)]!;
+          const reveal = interpolate(frame, [revealAt - 6, revealAt + 8], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",

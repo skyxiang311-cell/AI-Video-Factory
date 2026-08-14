@@ -1,4 +1,5 @@
-import {Easing, interpolate, useCurrentFrame} from "remotion";
+import {Easing, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {buildMeaningfulBeatFrames} from "../visual-beats";
 import {Icon} from "../components/Icon";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
@@ -6,6 +7,8 @@ import type {VisualSceneProps} from "./types";
 
 export const SummaryScene = ({branding, logicalDurationInFrames, scene, sceneCount, sceneIndex}: VisualSceneProps<"summary">) => {
   const frame = Math.min(useCurrentFrame(), logicalDurationInFrames - 1);
+  const {fps} = useVideoConfig();
+  const beats = buildMeaningfulBeatFrames(logicalDurationInFrames, fps, 4);
   const {accent, closing, items, title, tone} = scene.visualData;
   const accentColor = resolveAccent(accent);
   const colors = resolveCanvasColors(tone);
@@ -18,7 +21,8 @@ export const SummaryScene = ({branding, logicalDurationInFrames, scene, sceneCou
       </div>
       <div style={{backgroundColor: colors.panel, border: `2px solid ${accentColor}66`, padding: "28px 42px"}}>
         {items.map((item, index) => {
-          const reveal = interpolate(frame, [6 + index * 8, 18 + index * 8], [0, 1], {
+          const revealAt = beats[Math.min(index, beats.length - 2)]!;
+          const reveal = interpolate(frame, [revealAt - 5, revealAt + 8], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -33,7 +37,7 @@ export const SummaryScene = ({branding, logicalDurationInFrames, scene, sceneCou
           );
         })}
       </div>
-      <div style={{color: accentColor, fontSize: 40, fontWeight: 700, marginTop: 44, opacity: interpolate(frame, [32, 48], [0, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})}}>{closing}</div>
+      <div style={{color: accentColor, fontSize: 40, fontWeight: 700, marginTop: 44, opacity: interpolate(frame, [beats[3]! - 6, beats[3]! + 8], [0, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"})}}>{closing}</div>
     </SceneCanvas>
   );
 };

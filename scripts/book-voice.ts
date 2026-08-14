@@ -14,6 +14,7 @@ import {postProcessVoice} from "../src/voice/ffmpeg-voice-postprocessor";
 import {synthesizeNarrationBlocks} from "../src/voice/narration-voice-pipeline";
 import {getVoicePreset} from "../src/voice/voice-presets";
 import {buildBookVideoVoiceFingerprint} from "../src/research/book/book-video-timing";
+import {assertCalibratedBookVoiceDuration} from "../src/research/book/book-video-calibration";
 
 export const BOOK_VIDEO_LEAD_IN_MS = 60;
 export const BOOK_VIDEO_TAIL_OUT_MS = 300;
@@ -74,6 +75,7 @@ export const runBookVoiceCli = async (argv = process.argv.slice(2)): Promise<voi
   if (!media.canRead || media.audioTracks.length !== 1 || media.videoTracks.length !== 0) {
     throw new Error("voice.mp3 媒体结构无效");
   }
+  assertCalibratedBookVoiceDuration(media.durationMs);
   const sceneTimings = buildVoiceSceneTimings({
     leadInMs: BOOK_VIDEO_LEAD_IN_MS,
     tailOutMs: BOOK_VIDEO_TAIL_OUT_MS,

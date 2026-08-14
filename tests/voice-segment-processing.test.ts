@@ -41,7 +41,7 @@ describe("assignBoundariesToParts", () => {
     expect(assignments.every((part) => part.mappingSource === "boundary-text-match")).toBe(true);
   });
 
-  it("falls back to real-duration weighting when boundary text cannot be matched", () => {
+  it("anchors mismatched text to the provider's real boundary timing", () => {
     const assignments = assignBoundariesToParts(
       [
         {sceneId: "scene-a", text: "比例是百分之八十。"},
@@ -53,8 +53,26 @@ describe("assignBoundariesToParts", () => {
       ],
     );
 
-    expect(assignments.every((part) => part.mappingSource === "duration-weighted-fallback")).toBe(true);
-    expect(assignments.every((part) => part.boundaries.length === 0)).toBe(true);
+    expect(assignments.every((part) => part.mappingSource === "boundary-anchored-fallback")).toBe(true);
+    expect(assignments.every((part) => part.boundaries.length === 1)).toBe(true);
     expect(assignments.at(-1)!.speechOffsetMs + assignments.at(-1)!.speechDurationMs).toBe(1900);
+  });
+
+  it("falls back instead of dropping a final micro-scene when Edge returns coarse boundaries", () => {
+    const assignments = assignBoundariesToParts(
+      [
+        {sceneId: "scene-a", text: "作者先提出判断，"},
+        {sceneId: "scene-b", text: "接着说明证据，"},
+        {sceneId: "scene-c", text: "最后保留边界。"},
+      ],
+      [
+        {text: "作者先提出判断接着说明证据", offsetMs: 100, durationMs: 1600},
+        {text: "最后保留边界", offsetMs: 1800, durationMs: 900},
+      ],
+    );
+
+    expect(assignments).toHaveLength(3);
+    expect(assignments.every((part) => part.mappingSource === "boundary-anchored-fallback")).toBe(true);
+    expect(assignments.at(-1)!.speechOffsetMs + assignments.at(-1)!.speechDurationMs).toBe(2700);
   });
 });

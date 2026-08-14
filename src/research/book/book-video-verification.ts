@@ -8,6 +8,19 @@ import {buildNarrationPlan} from "../../narration/build-narration-plan";
 
 export const BOOK_VIDEO_BLACKDETECT_FILTER = "blackdetect=d=1:pix_th=0.10:pic_th=0.99";
 
+export const longestStaticVisualDurationMs = (
+  scenes: Array<{startMs: number; endMs: number}>,
+): number => Math.max(0, ...scenes.map((scene) => scene.endMs - scene.startMs));
+
+export const assertBookVideoDurationRange = (voiceDurationMs: number, videoDurationMs: number): void => {
+  if (voiceDurationMs < 285_000 || voiceDurationMs > 315_000) {
+    throw new Error(`voice.mp3 真实时长必须在 285–315 秒，实际 ${(voiceDurationMs / 1000).toFixed(3)} 秒`);
+  }
+  if (videoDurationMs < 270_000 || videoDurationMs > 330_000) {
+    throw new Error(`final.mp4 真实时长必须在 270–330 秒，实际 ${(videoDurationMs / 1000).toFixed(3)} 秒`);
+  }
+};
+
 const assertNoBlankRun = (videoPath: string): Promise<void> => new Promise((resolveCheck, reject) => {
   if (!ffmpegPath) return reject(new Error("ffmpeg-static 未提供可执行文件路径"));
   const child = spawn(ffmpegPath, [
@@ -48,6 +61,7 @@ export const verifyBookVideoOutput = async (jobId: string) => {
   const audioTrack = video.audioTracks[0];
   const normalizedParts = buildNarrationPlan(storyboard).blocks.flatMap((block) => block.parts);
   if (!videoTrack || !audioTrack) throw new Error("final.mp4 必须同时包含视频和音频");
+  assertBookVideoDurationRange(voice.durationMs, video.durationMs);
   if (
     !storyboard.audio.enabled ||
     voiceManifest.jobId !== storyboard.jobId ||
@@ -75,7 +89,11 @@ export const verifyBookVideoOutput = async (jobId: string) => {
   if (storyboard.scenes.some((scene) => scene.onScreenText.length < 1 || scene.visualIntent.length < 1)) {
     throw new Error("存在没有明确视觉重点的场景");
   }
+  const longestStaticVisualMs = longestStaticVisualDurationMs(storyboard.scenes);
+  if (longestStaticVisualMs > 10_000) {
+    throw new Error(`存在超过 10 秒没有场景级视觉变化的区间：${longestStaticVisualMs}ms`);
+  }
   if (voiceStats.size < 10_000 || videoStats.size < 100_000) throw new Error("最终媒体文件异常小");
   await assertNoBlankRun(resolve(directory, "final.mp4"));
-  return {storyboard, voice, video, voiceStats, videoStats};
+  return {storyboard, voice, video, voiceStats, videoStats, longestStaticVisualMs};
 };

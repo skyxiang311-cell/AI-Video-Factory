@@ -1,4 +1,5 @@
-import {Easing, interpolate, useCurrentFrame} from "remotion";
+import {Easing, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {buildMeaningfulBeatFrames} from "../visual-beats";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
 import type {VisualSceneProps} from "./types";
@@ -11,6 +12,8 @@ export const HookScene = ({
   sceneIndex,
 }: VisualSceneProps<"hook">) => {
   const frame = Math.min(useCurrentFrame(), logicalDurationInFrames - 1);
+  const {fps} = useVideoConfig();
+  const [motifBeat, headlineBeat, supportingBeat] = buildMeaningfulBeatFrames(logicalDurationInFrames, fps, 3);
   const {accent, headline, highlight, motif, supporting, tone} = scene.visualData;
   const accentColor = resolveAccent(accent);
   const colors = resolveCanvasColors(tone);
@@ -31,7 +34,7 @@ export const HookScene = ({
           display: "flex",
           gap: 18,
           marginBottom: 58,
-          opacity: interpolate(frame, [0, 9], [0, 1], {
+          opacity: interpolate(frame, [motifBeat! - 4, motifBeat! + 5], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -59,12 +62,12 @@ export const HookScene = ({
           fontWeight: 920,
           letterSpacing: -7,
           lineHeight: 1.08,
-          opacity: interpolate(frame, [2, 15], [0, 1], {
+          opacity: interpolate(frame, [headlineBeat! - 5, headlineBeat! + 8], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           }),
-          scale: interpolate(frame, [2, 15], [0.88, 1], {
+          scale: interpolate(frame, [headlineBeat! - 5, headlineBeat! + 8], [0.88, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -90,7 +93,7 @@ export const HookScene = ({
             fontWeight: 560,
             lineHeight: 1.55,
             marginTop: 70,
-            opacity: interpolate(frame, [12, 25], [0, 1], {
+            opacity: interpolate(frame, [supportingBeat! - 6, supportingBeat! + 7], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             }),

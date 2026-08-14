@@ -1,6 +1,7 @@
 import type {BookDeepScript} from "./book-script-schema";
 import {alignSceneCaptions} from "../../subtitles/voice-caption-alignment";
 import {parseVisualStoryboard, type VisualScene, type VisualStoryboard} from "../../storyboard/visual-schema";
+import {countReadableCharacters, splitVoiceTextForVisualBeats} from "./book-video-calibration";
 
 type ScriptSegment = BookDeepScript["segments"][number];
 type Purpose = ScriptSegment["purpose"];
@@ -76,6 +77,7 @@ const sceneBase = (
   onScreenText,
   visualIntent,
   assetRefs: [],
+  claimIds: uniqueStrings(segments.flatMap((segment) => segment.claimIds)),
   sourceRefs: segments.flatMap((segment) => segment.sourceRefs),
   sourceNote: sourceNoteFor(segments),
   emphasis: onScreenText.slice(0, 2).map((text) => chars(text, 12)),
@@ -84,7 +86,9 @@ const sceneBase = (
   transitionDurationMs: id === "scene-primary-hook" ? 0 : 360,
 });
 
-const buildScenes = (script: BookDeepScript): VisualScene[] => {
+const uniqueStrings = (values: string[]): string[] => [...new Set(values)];
+
+const buildMacroScenes = (script: BookDeepScript): VisualScene[] => {
   const [primaryHook, hookRemainder] = shortHook(script.segments[0]!.voiceText);
   const segment = (index: number) => script.segments[index]!;
   const terms = (index: number, count: number) => visualTerms(segment(index).text, count);
@@ -259,13 +263,163 @@ const buildScenes = (script: BookDeepScript): VisualScene[] => {
   return scenes;
 };
 
+const diagramForChunk = (base: VisualScene, chunk: string, id: string): VisualScene => {
+  const terms = visualTerms(chunk, 3);
+  return {
+    ...base,
+    id,
+    voiceText: chunk,
+    onScreenText: terms,
+    emphasis: terms.slice(0, 2).map((term) => chars(term, 12)),
+    visualIntent: "按口播短句分步呈现关键词、关系连线与结论",
+    visualType: "diagram",
+    visualData: {
+      title: chars(terms[0]!, 26),
+      layout: "horizontal-flow",
+      accent: base.visualData.accent,
+      tone: base.visualData.tone,
+      nodes: [
+        {id: "beat-a", label: terms[0]!, icon: "book"},
+        {id: "beat-b", label: terms[1]!, icon: "brain"},
+        {id: "beat-c", label: terms[2]!, icon: "check"},
+      ],
+      edges: [{from: "beat-a", to: "beat-b"}, {from: "beat-b", to: "beat-c"}],
+    },
+  };
+};
+
+const visualizeChunk = (input: {
+  macro: VisualScene;
+  chunk: string;
+  id: string;
+  isFinalScene: boolean;
+  sceneIndex: number;
+}): VisualScene => {
+  const base = {
+    ...input.macro,
+    id: input.id,
+    voiceText: input.chunk,
+    transition: input.sceneIndex === 0 ? "cut" as const : input.sceneIndex % 3 === 0 ? "slide-left" as const : "fade" as const,
+    transitionDurationMs: input.sceneIndex === 0 ? 0 : 260,
+  };
+  if (input.macro.visualType === "hook") return base;
+  if (input.macro.visualType === "summary") {
+    if (!input.isFinalScene) return diagramForChunk(base, input.chunk, input.id);
+    const terms = visualTerms(input.chunk, 3);
+    return {
+      ...base,
+      onScreenText: terms,
+      emphasis: terms.slice(0, 2).map((term) => chars(term, 12)),
+      visualType: "summary",
+      visualData: {
+        ...input.macro.visualData,
+        items: [
+          {label: chars(terms[0]!, 18), icon: "shuffle"},
+          {label: chars(terms[1]!, 18), icon: "check"},
+          {label: chars(terms[2]!, 18), icon: "brain"},
+        ],
+        closing: chars(input.chunk, 28),
+      },
+    };
+  }
+  if (input.macro.visualType === "stat") {
+    const metrics = extractMetrics(input.chunk);
+    if (metrics.length === 0) return diagramForChunk(base, input.chunk, input.id);
+    const onScreenText = metrics.map((metric) => metric.label);
+    return {
+      ...base,
+      onScreenText,
+      emphasis: onScreenText.slice(0, 2),
+      visualType: "stat",
+      visualData: {
+        ...input.macro.visualData,
+        mode: metrics.length === 1 ? "single" : "ratio",
+        metrics,
+      },
+    };
+  }
+  if (input.macro.visualType === "comparison") {
+    const terms = visualTerms(input.chunk, 2);
+    return {
+      ...base,
+      onScreenText: terms,
+      emphasis: terms.map((term) => chars(term, 12)),
+      visualType: "comparison",
+      visualData: {
+        ...input.macro.visualData,
+        title: chars(terms[0]!, 26),
+        left: {...input.macro.visualData.left, headline: chars(terms[0]!, 18), points: [chars(terms[0]!, 18)]},
+        right: {...input.macro.visualData.right, headline: chars(terms[1]!, 18), points: [chars(terms[1]!, 18)]},
+      },
+    };
+  }
+  const terms = visualTerms(input.chunk, input.macro.visualData.nodes.length);
+  return {
+    ...base,
+    onScreenText: terms,
+    emphasis: terms.slice(0, 2).map((term) => chars(term, 12)),
+    visualType: "diagram",
+    visualData: {
+      ...input.macro.visualData,
+      title: chars(terms[0]!, 26),
+      nodes: input.macro.visualData.nodes.map((node, index) => ({...node, label: terms[index]!})),
+    },
+  };
+};
+
+type SceneGroup = {id: string; sceneIds: string[]; pauseAfter: "short" | "sentence" | "knowledge-switch" | "important-conclusion"};
+
+const buildScenesAndGroups = (script: BookDeepScript): {scenes: VisualScene[]; groups: SceneGroup[]} => {
+  const macros = buildMacroScenes(script);
+  const scenes: VisualScene[] = [];
+  const macroSceneIds: string[][] = [];
+  macros.forEach((macro, macroIndex) => {
+    const chunks = splitVoiceTextForVisualBeats(macro.voiceText);
+    const ids: string[] = [];
+    chunks.forEach((chunk, partIndex) => {
+      const id = macroIndex === 0
+        ? "scene-primary-hook"
+        : `${macro.id}-${String(partIndex + 1).padStart(2, "0")}`;
+      ids.push(id);
+      scenes.push(visualizeChunk({
+        macro,
+        chunk,
+        id,
+        isFinalScene: macroIndex === macros.length - 1 && partIndex === chunks.length - 1,
+        sceneIndex: scenes.length,
+      }));
+    });
+    macroSceneIds.push(ids);
+  });
+
+  const primaryDurationMs = 3000;
+  const remainingWeight = scenes.slice(1).reduce((sum, scene) => sum + Math.max(1, countReadableCharacters(scene.voiceText)), 0);
+  let cursor = 0;
+  const timedScenes = scenes.map((scene, index) => {
+    const startMs = cursor;
+    const endMs = index === 0
+      ? primaryDurationMs
+      : index === scenes.length - 1
+        ? script.durationSec * 1000
+        : Math.round(cursor + ((script.durationSec * 1000 - primaryDurationMs) * Math.max(1, countReadableCharacters(scene.voiceText))) / remainingWeight);
+    cursor = endMs;
+    return {...scene, startMs, endMs};
+  });
+  const groups: SceneGroup[] = [
+    {id: "speech-hook", sceneIds: [...macroSceneIds[0]!, ...macroSceneIds[1]!], pauseAfter: "short"},
+    {id: "speech-audience-relevance", sceneIds: macroSceneIds[2]!, pauseAfter: "knowledge-switch"},
+    {id: "speech-author-judgment", sceneIds: macroSceneIds[3]!, pauseAfter: "sentence"},
+    {id: "speech-strongest-evidence", sceneIds: macroSceneIds[4]!, pauseAfter: "knowledge-switch"},
+    {id: "speech-second-layer", sceneIds: macroSceneIds[5]!, pauseAfter: "knowledge-switch"},
+    {id: "speech-critical-turn", sceneIds: macroSceneIds[6]!, pauseAfter: "knowledge-switch"},
+    {id: "speech-system-judgment", sceneIds: macroSceneIds[7]!, pauseAfter: "knowledge-switch"},
+    {id: "speech-ending", sceneIds: macroSceneIds[8]!, pauseAfter: "important-conclusion"},
+  ];
+  return {scenes: timedScenes, groups};
+};
+
 export const buildBookVideoStoryboard = (jobId: string, script: BookDeepScript): VisualStoryboard => {
-  const scale = script.durationSec / 300;
-  const scenes = buildScenes(script).map((scene, index, all) => ({
-    ...scene,
-    startMs: index === 0 ? 0 : index === 1 ? 3000 : Math.round(scene.startMs * scale),
-    endMs: index === 0 ? 3000 : index === all.length - 1 ? script.durationSec * 1000 : Math.round(scene.endMs * scale),
-  }));
+  const {scenes, groups} = buildScenesAndGroups(script);
   const captions = scenes.flatMap((scene) => alignSceneCaptions({
     sceneId: scene.id,
     text: scene.voiceText,
@@ -283,11 +437,7 @@ export const buildBookVideoStoryboard = (jobId: string, script: BookDeepScript):
     branding: {enabled: true, label: "BOOK DEEP READING", position: "top-left"},
     narration: {
       preset: "natural",
-      blocks: scenes.map((scene) => ({
-        id: `speech-${scene.id.replace(/^scene-/u, "")}`,
-        sceneIds: [scene.id],
-        pauseAfter: scene.purpose === "summary" ? "important-conclusion" : "sentence",
-      })),
+      blocks: groups,
     },
     audio: {enabled: false},
     scenes,

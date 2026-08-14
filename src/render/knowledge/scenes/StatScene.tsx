@@ -1,4 +1,5 @@
-import {Easing, interpolate, useCurrentFrame} from "remotion";
+import {Easing, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
+import {buildMeaningfulBeatFrames} from "../visual-beats";
 import {Icon} from "../components/Icon";
 import {SceneCanvas} from "../components/SceneCanvas";
 import {resolveAccent, resolveCanvasColors} from "../visual-utils";
@@ -14,6 +15,8 @@ export const StatScene = ({
 }: VisualSceneProps<"stat">) => {
   const frame = Math.min(useCurrentFrame(), logicalDurationInFrames - 1);
   const {accent, metrics, mode, title, tone} = scene.visualData;
+  const {fps} = useVideoConfig();
+  const beats = buildMeaningfulBeatFrames(logicalDurationInFrames, fps, Math.min(4, metrics.length + 2));
   const accentColor = resolveAccent(accent);
   const colors = resolveCanvasColors(tone);
 
@@ -28,7 +31,8 @@ export const StatScene = ({
         }}
       >
         {metrics.map((metric, index) => {
-          const progress = interpolate(frame, [6 + index * 6, 34 + index * 6], [0, 1], {
+          const revealAt = beats[Math.min(index + 1, beats.length - 1)]!;
+          const progress = interpolate(frame, [revealAt - 7, revealAt + 12], [0, 1], {
             easing: Easing.bezier(0.16, 1, 0.3, 1),
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
