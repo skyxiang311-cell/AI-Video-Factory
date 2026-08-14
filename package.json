@@ -29,6 +29,10 @@
     ,"book:render": "tsx scripts/book-render.ts"
     ,"book:comic-storyboard": "tsx scripts/book-comic-storyboard.ts"
     ,"book:comic-render": "tsx scripts/book-comic-render.ts"
+    ,"book:dialogue": "tsx scripts/book-dialogue.ts"
+    ,"book:dialogue-voice": "tsx scripts/book-dialogue-voice.ts"
+    ,"book:dialogue-storyboard": "tsx scripts/book-dialogue-storyboard.ts"
+    ,"book:dialogue-render": "tsx scripts/book-dialogue-render.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-sc": "5.3.0",
